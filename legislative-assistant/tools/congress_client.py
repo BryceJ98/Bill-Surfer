@@ -253,7 +253,7 @@ def _is_cacheable(path: str) -> bool:
 # Core request
 # ---------------------------------------------------------------------------
 
-def _request(path: str, params: dict | None = None, use_cache: bool = True) -> dict:
+def _request(path: str, params: dict | None = None, use_cache: bool = True, api_key: str | None = None) -> dict:
     """
     Make a GET request to the Congress.gov API.
 
@@ -261,11 +261,13 @@ def _request(path: str, params: dict | None = None, use_cache: bool = True) -> d
         path:      URL path relative to BASE_URL (e.g. "/bill/119/hr/1")
         params:    Extra query parameters (api_key and format are added automatically)
         use_cache: Whether to check/save the cache
+        api_key:   Override the global API_KEY (used for per-user keys in the web app)
 
     Returns:
         Parsed JSON dict, or {"error": str} on failure.
     """
-    if not API_KEY:
+    resolved_key = api_key or API_KEY
+    if not resolved_key:
         return {"error": "CONGRESS_API_KEY environment variable is not set. "
                          "Get a free key at https://api.congress.gov/sign-up/"}
 
@@ -277,7 +279,7 @@ def _request(path: str, params: dict | None = None, use_cache: bool = True) -> d
         if cached is not None:
             return cached
 
-    full_params = {**params, "api_key": API_KEY, "format": "json"}
+    full_params = {**params, "api_key": resolved_key, "format": "json"}
     url = BASE_URL.rstrip("/") + path
 
     try:
@@ -325,6 +327,7 @@ def search_bills(
     bill_type: str | None = None,
     offset: int = 0,
     limit: int = 20,
+    api_key: str | None = None,
 ) -> dict:
     """
     Search federal bills by keyword.
@@ -350,7 +353,7 @@ def search_bills(
         path = f"/bill/{congress}"
 
     params: dict = {"offset": offset, "limit": limit}
-    data = _request(path, params, use_cache=False)
+    data = _request(path, params, use_cache=False, api_key=api_key)
     if "error" in data:
         return data
 
@@ -400,14 +403,14 @@ def _normalise_bill_summary(raw: dict) -> dict:
 # Bills — detail, text, actions, cosponsors, summaries
 # ---------------------------------------------------------------------------
 
-def get_bill(congress: int, bill_type: str, bill_number: int) -> dict:
+def get_bill(congress: int, bill_type: str, bill_number: int, api_key: str | None = None) -> dict:
     """Retrieve full bill details from Congress.gov."""
     bt = _normalise_type(str(bill_type))
     if not bt:
         return {"error": f"Unknown bill type: '{bill_type}'"}
 
     path = f"/bill/{congress}/{bt}/{bill_number}"
-    data = _request(path)
+    data = _request(path, api_key=api_key)
     if "error" in data:
         return data
 
@@ -515,14 +518,14 @@ def get_bill_text(congress: int, bill_type: str, bill_number: int) -> dict:
     return result
 
 
-def get_bill_actions(congress: int, bill_type: str, bill_number: int, limit: int = 50) -> dict:
+def get_bill_actions(congress: int, bill_type: str, bill_number: int, limit: int = 50, api_key: str | None = None) -> dict:
     """Retrieve the full action history for a federal bill."""
     bt = _normalise_type(str(bill_type))
     if not bt:
         return {"error": f"Unknown bill type: '{bill_type}'"}
 
     path = f"/bill/{congress}/{bt}/{bill_number}/actions"
-    data = _request(path, {"limit": limit})
+    data = _request(path, {"limit": limit}, api_key=api_key)
     if "error" in data:
         return data
 
@@ -570,14 +573,14 @@ def get_bill_cosponsors(congress: int, bill_type: str, bill_number: int, limit: 
     }
 
 
-def get_bill_summaries(congress: int, bill_type: str, bill_number: int) -> dict:
+def get_bill_summaries(congress: int, bill_type: str, bill_number: int, api_key: str | None = None) -> dict:
     """Retrieve Congressional Research Service (CRS) summaries for a bill."""
     bt = _normalise_type(str(bill_type))
     if not bt:
         return {"error": f"Unknown bill type: '{bill_type}'"}
 
     path = f"/bill/{congress}/{bt}/{bill_number}/summaries"
-    data = _request(path)
+    data = _request(path, api_key=api_key)
     if "error" in data:
         return data
 
@@ -672,7 +675,7 @@ def _normalise_amendment(raw: dict) -> dict:
 # Treaties
 # ---------------------------------------------------------------------------
 
-def search_treaties(congress: int | None = None, limit: int = 20, offset: int = 0) -> dict:
+def search_treaties(congress: int | None = None, limit: int = 20, offset: int = 0, api_key: str | None = None) -> dict:
     """
     List treaties received by a given Congress.
 
@@ -681,7 +684,7 @@ def search_treaties(congress: int | None = None, limit: int = 20, offset: int = 
     """
     congress = congress or current_congress()
     path = f"/treaty/{congress}"
-    data = _request(path, {"limit": limit, "offset": offset}, use_cache=False)
+    data = _request(path, {"limit": limit, "offset": offset}, use_cache=False, api_key=api_key)
     if "error" in data:
         return data
 
@@ -768,6 +771,7 @@ def search_nominations(
     query: str | None = None,
     limit: int = 20,
     offset: int = 0,
+    api_key: str | None = None,
 ) -> dict:
     """
     List presidential nominations for a given Congress with optional keyword filter.
@@ -783,7 +787,7 @@ def search_nominations(
     """
     congress = congress or current_congress()
     path = f"/nomination/{congress}"
-    data = _request(path, {"limit": limit, "offset": offset}, use_cache=False)
+    data = _request(path, {"limit": limit, "offset": offset}, use_cache=False, api_key=api_key)
     if "error" in data:
         return data
 

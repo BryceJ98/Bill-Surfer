@@ -95,12 +95,13 @@ def _save_cache(params: dict, data: dict):
         pass
 
 
-def _request(params: dict, use_cache: bool = True) -> dict:
+def _request(params: dict, use_cache: bool = True, api_key: str | None = None) -> dict:
     """Core request method with optional caching."""
-    if not API_KEY:
+    resolved_key = api_key or API_KEY
+    if not resolved_key:
         return {"error": "LEGISCAN_API_KEY environment variable is not set"}
 
-    full_params = {**params, "key": API_KEY}
+    full_params = {**params, "key": resolved_key}
     op = params.get("op", "")
 
     # Check cache for safe ops
@@ -130,14 +131,14 @@ def _request(params: dict, use_cache: bool = True) -> dict:
 
 # ── Public API functions ───────────────────────────────────────────────────────
 
-def search_bills(query: str, state: str = "ALL", year: int = 2) -> dict:
+def search_bills(query: str, state: str = "ALL", year: int = 2, api_key: str | None = None) -> dict:
     """
     Search bills by keyword.
     year: 1=all, 2=current session, 3=recent, 4=prior
     Returns dict with 'summary' and 'bills' list (up to 50).
     """
     data = _request({"op": "getSearch", "state": state, "query": query, "year": year},
-                    use_cache=False)
+                    use_cache=False, api_key=api_key)
     if "error" in data:
         return data
     results = data.get("searchresult", {})
@@ -148,12 +149,12 @@ def search_bills(query: str, state: str = "ALL", year: int = 2) -> dict:
     }
 
 
-def get_bill(bill_id: int) -> dict:
+def get_bill(bill_id: int, api_key: str | None = None) -> dict:
     """
     Full bill record: metadata, history, sponsors, votes, texts, amendments,
     supplements (fiscal notes), subjects.
     """
-    data = _request({"op": "getBill", "id": bill_id})
+    data = _request({"op": "getBill", "id": bill_id}, api_key=api_key)
     if "error" in data:
         return data
     return data.get("bill", {})

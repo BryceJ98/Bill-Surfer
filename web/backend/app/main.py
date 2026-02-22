@@ -1,0 +1,47 @@
+"""
+main.py — Bill-Surfer FastAPI application entry point
+"""
+
+import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+from app.routers import keys, docket, search, reports, export, chat, settings
+
+load_dotenv()
+
+app = FastAPI(
+    title="Bill-Surfer API",
+    description="Legislative research platform for political science researchers",
+    version="1.0.0",
+)
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------------
+app.include_router(keys.router,    prefix="/keys",    tags=["API Keys"])
+app.include_router(docket.router,  prefix="/docket",  tags=["Docket"])
+app.include_router(search.router,  prefix="/search",  tags=["Search"])
+app.include_router(reports.router, prefix="/reports", tags=["Reports"])
+app.include_router(export.router,  prefix="/export",  tags=["Export"])
+app.include_router(chat.router,     prefix="/chat",     tags=["Chat"])
+app.include_router(settings.router, prefix="/settings", tags=["Settings"])
+
+
+@app.get("/health", tags=["Health"])
+def health():
+    return {"status": "ok"}

@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base ──────────────────────────────────────────────────────────────── */
+:root {
+  /* Surf / day */
+  --bg:          #FFF5E6;
+  --bg-card:     #FFF9F5;
+  --border:      #0D2B52;
+  --text:        #0D2B52;
+  --text-muted:  #4A6080;
+  --accent:      #F4632A;
+  --accent-lt:   #F7894E;
+  --primary:     #0D2B52;
+  --primary-lt:  #1A4A8A;
+  --scanline:    rgba(13,43,82,0.04);
+}
+
+.dark {
+  /* Ski / night */
+  --bg:          #1A2535;
+  --bg-card:     #1F2F42;
+  --border:      #5BBFED;
+  --text:        #F4F9FC;
+  --text-muted:  #A8DCF5;
+  --accent:      #5BBFED;
+  --accent-lt:   #A8DCF5;
+  --primary:     #2D7A4F;
+  --primary-lt:  #4CAF75;
+  --scanline:    rgba(91,191,237,0.04);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  image-rendering: pixelated;
+}
+
+/* ── Pixel border utility ──────────────────────────────────────────────── */
+.pixel-border {
+  border: 3px solid var(--border);
+  box-shadow: 4px 4px 0 0 var(--border);
+}
+
+.pixel-border-accent {
+  border: 3px solid var(--accent);
+  box-shadow: 4px 4px 0 0 var(--accent);
+}
+
+/* ── Scanline overlay ──────────────────────────────────────────────────── */
+.scanlines::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    var(--scanline) 0px,
+    var(--scanline) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Arcade button ─────────────────────────────────────────────────────── */
+.btn-arcade {
+  @apply font-pixel text-xs px-4 py-2 transition-all duration-75 active:translate-x-1 active:translate-y-1;
+  background-color: var(--accent);
+  color: var(--bg);
+  border: 3px solid var(--border);
+  box-shadow: 4px 4px 0 0 var(--border);
+}
+.btn-arcade:hover {
+  box-shadow: 2px 2px 0 0 var(--border);
+  transform: translate(1px, 1px);
+}
+.btn-arcade:active {
+  box-shadow: 0 0 0 0 var(--border);
+  transform: translate(4px, 4px);
+}
+
+.btn-arcade-outline {
+  @apply font-pixel text-xs px-4 py-2 transition-all duration-75 active:translate-x-1 active:translate-y-1;
+  background-color: transparent;
+  color: var(--accent);
+  border: 3px solid var(--accent);
+  box-shadow: 4px 4px 0 0 var(--accent);
+}
+.btn-arcade-outline:hover {
+  box-shadow: 2px 2px 0 0 var(--accent);
+  transform: translate(1px, 1px);
+}
+
+/* ── Card ──────────────────────────────────────────────────────────────── */
+.card {
+  background-color: var(--bg-card);
+  border: 3px solid var(--border);
+  box-shadow: 4px 4px 0 0 var(--border);
+}
+
+/* ── Input ─────────────────────────────────────────────────────────────── */
+.input-arcade {
+  background-color: var(--bg);
+  color: var(--text);
+  border: 3px solid var(--border);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  outline: none;
+  width: 100%;
+}
+.input-arcade:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* ── Ticker / marquee ──────────────────────────────────────────────────── */
+.ticker-wrap {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ticker {
+  display: inline-block;
+  animation: marquee 30s linear infinite;
+}
+
+/* ── Pixel cursor blink ────────────────────────────────────────────────── */
+.cursor::after {
+  content: '█';
+  animation: blink 1s step-end infinite;
+}
+
+/* ── Neon glow ─────────────────────────────────────────────────────────── */
+.neon-text {
+  text-shadow: 0 0 8px var(--accent), 0 0 16px var(--accent);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); border-left: 2px solid var(--border); }
+::-webkit-scrollbar-thumb { background: var(--accent); border: 2px solid var(--border); }
