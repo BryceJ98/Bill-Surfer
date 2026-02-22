@@ -1585,6 +1585,7 @@ def get_members_by_congress(
     chamber: str | None = None,
     limit: int = 250,
     offset: int = 0,
+    api_key: str | None = None,
 ) -> dict:
     """
     Get all members of a specific Congress, optionally filtered by chamber.
@@ -1608,7 +1609,7 @@ def get_members_by_congress(
     else:
         path = f"/member/congress/{congress}"
 
-    data = _request(path, {"limit": limit, "offset": offset})
+    data = _request(path, {"limit": limit, "offset": offset}, api_key=api_key)
     if "error" in data:
         return data
 
