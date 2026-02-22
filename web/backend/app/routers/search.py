@@ -2,20 +2,12 @@
 search.py — Search bills, nominations, and treaties using the user's own API keys.
 """
 
-import sys
-from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.auth import get_current_user
 from app.routers.keys import get_user_key
-
-# Allow importing the legislative tools from the repo root
-_tools_path = Path(__file__).resolve().parents[4] / "legislative-assistant" / "tools"
-if str(_tools_path) not in sys.path:
-    sys.path.insert(0, str(_tools_path))
-
-import congress_client as cc
-import legiscan_client as lc
+from app.tools import congress_client as cc
+from app.tools import legiscan_client as lc
 
 router = APIRouter()
 

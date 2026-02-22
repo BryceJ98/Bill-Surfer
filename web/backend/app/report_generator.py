@@ -9,10 +9,8 @@ Flow:
   5. Return the PDF bytes + the structured JSON content
 """
 
-import sys
 import json
 import io
-from pathlib import Path
 from datetime import date
 
 import litellm
@@ -26,13 +24,8 @@ from reportlab.platypus import (
     HRFlowable, PageBreak, KeepTogether,
 )
 
-# Legislative tools
-_tools_path = Path(__file__).resolve().parents[3] / "legislative-assistant" / "tools"
-if str(_tools_path) not in sys.path:
-    sys.path.insert(0, str(_tools_path))
-
-import congress_client as cc
-import legiscan_client as lc
+from app.tools import congress_client as cc
+from app.tools import legiscan_client as lc
 
 # ---------------------------------------------------------------------------
 # Color palette
