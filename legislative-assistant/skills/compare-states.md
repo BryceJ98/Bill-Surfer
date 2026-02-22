@@ -87,8 +87,16 @@ Based on the legislative record and outcomes, what approaches appear to be worki
 
 ---
 
+## Federal context
+
+In the **National Landscape** section, always check whether there is active federal legislation on the topic by calling `congress_client.search_bills(topic, congress=current_congress())`. If federal bills exist:
+- Mention them in the National Landscape paragraph (e.g., "At the federal level, H.R. X would...")
+- Note whether state legislation is ahead of, behind, or aligned with federal activity
+- If the user explicitly includes `US` in their state list (e.g., `/compare-states minimum wage US,CA,NY`), add a **Federal** row to the comparison table and a full Federal Profile in the Detailed State Profiles section
+
 ## Notes
 - Be explicit about what is based on bill text vs. metadata vs. your training knowledge
 - If a state has no relevant legislation, say so explicitly — absence of legislation is itself a data point
 - Flag bills that are very recent vs. well-established law — recency matters for outcome assessment
 - If the user asked about a state pair (e.g. KS vs. NJ for sports betting), lead with a direct head-to-head comparison before the broader survey
+- For the Federal row, use "U.S. Congress" as the state name and include the bill's Chamber

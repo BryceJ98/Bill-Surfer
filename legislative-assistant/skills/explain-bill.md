@@ -11,17 +11,28 @@ Plain-English explanation of what a bill actually does — written for any citiz
 `/explain-bill $ARGUMENTS`
 
 Where `$ARGUMENTS` is one of:
-- A bill number + state: `KS SB84`, `TX HB1234`
+- A state bill number + state: `KS SB84`, `TX HB1234`
 - A description: `the Kansas sports gambling bill`
 - A LegiScan bill_id: `1423040`
+- A federal bill: `HR 1234`, `S. 456`, `H.J.Res. 7`, `HR 1234 119` (with congress number)
 
 ## What this skill does
 
 You are a senior policy analyst explaining legislation to a constituent. Your job is to cut through legal language and tell people what a bill *actually means for their life*.
 
-### Step 1 — Retrieve the bill
+### Step 0 — Detect source
 
-If `$ARGUMENTS` is a bill_id, call `get_bill_text_latest` and `get_bill_detail` directly.
+**Federal bill** — if `$ARGUMENTS` matches a federal bill pattern (starts with HR, S., HRes, HJRes, SRes, SJRes, HConRes, SConRes, or a number alone preceded by a congress reference like "119"):
+1. Call `congress_client.parse_bill_identifier($ARGUMENTS)` to extract `{bill_type, bill_number, congress}`
+2. Call `congress_client.get_bill(congress, bill_type, bill_number)` for metadata
+3. Call `congress_client.get_bill_text(congress, bill_type, bill_number)` for the actual text
+4. Call `congress_client.get_bill_summaries(congress, bill_type, bill_number)` for the CRS summary (useful as a fallback if text is PDF-only)
+
+**State bill** — otherwise, continue with Step 1 below.
+
+### Step 1 — Retrieve the state bill
+
+If `$ARGUMENTS` is a numeric bill_id, call `get_bill_text_latest` and `get_bill_detail` directly.
 
 If `$ARGUMENTS` is a bill number + state (e.g. "KS SB84"):
 1. Call `search_bills` with the bill number as query and the state code, year=1
@@ -31,7 +42,9 @@ If `$ARGUMENTS` is a bill number + state (e.g. "KS SB84"):
 
 ### Step 2 — Read the bill text
 
-Before writing the explanation, read the actual bill text returned by `get_bill_text_latest`. If the text is binary/PDF, note the state_link and use the metadata + description to inform your analysis.
+Before writing the explanation, read the actual bill text.
+- For **federal bills**: use the `text` field from `get_bill_text()`. If blank (PDF-only), use the CRS summary from `get_bill_summaries()` as the primary source — clearly note this.
+- For **state bills**: use text from `get_bill_text_latest()`. If binary/PDF, note the state_link and use metadata + description.
 
 ### Step 3 — Write the explanation
 
@@ -39,14 +52,14 @@ Produce a structured plain-English explanation with these exact sections:
 
 ---
 
-## [Bill Number]: [Short plain-English title]
-**[State] | [Status] | [Last action date]**
+## [Bill Label]: [Short plain-English title]
+**[State or U.S. Congress (Nth)] | [Chamber] | [Status] | [Last action date]**
 
 ### What this bill does
 2–3 sentences. Describe what the bill *changes* in concrete terms. Start with "This bill..." Avoid jargon. If it legalizes something, say what. If it spends money, say how much and on what. If it creates a new rule, say what the rule is.
 
 ### Who it affects
-A bulleted list of specific groups of people who will notice a change if this passes. Be concrete — not "Kansas residents" but "adults who want to bet on NFL games" or "horse racing track owners."
+A bulleted list of specific groups of people who will notice a change if this passes. Be concrete — not "Americans" but "adults who want to bet on NFL games" or "small business owners with under 50 employees."
 
 ### What changes if it passes
 A short before/after comparison. What is true today? What would be different?
@@ -71,4 +84,5 @@ One paragraph, 3–5 sentences, written at an 8th-grade reading level. This is t
 - Do use: plain verbs, concrete nouns, specific dollar amounts, specific dates
 - If something is uncertain or requires interpretation, say so
 - Do not editorialize or recommend for/against the bill
-- If the bill text was unavailable (PDF), clearly note you're working from the description and title only
+- If working from a CRS summary (PDF text unavailable), clearly note that at the top
+- For federal bills, always include the Congress.gov link at the end

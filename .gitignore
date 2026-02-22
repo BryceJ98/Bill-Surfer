@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.legiscan_cache/
+.congress_cache/
+*.pdf
