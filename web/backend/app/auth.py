@@ -1,40 +1,33 @@
 """
 auth.py — Supabase JWT verification dependency
+Uses the Supabase client to verify tokens instead of manual JWT decoding.
 """
 
-import os
-import jwt
-from jwt.exceptions import InvalidTokenError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.db import get_db
 
 bearer = HTTPBearer()
-
-JWT_SECRET    = os.getenv("SUPABASE_JWT_SECRET", "")
-JWT_AUDIENCE  = "authenticated"
-JWT_ALGORITHM = "HS256"
 
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> dict:
     """
-    Verify the Supabase JWT and return the decoded payload.
+    Verify the Supabase JWT using the Supabase client and return the user.
     Raises 401 if invalid or expired.
     """
     token = credentials.credentials
     try:
-        payload = jwt.decode(
-            token,
-            JWT_SECRET,
-            algorithms=[JWT_ALGORITHM],
-            audience=JWT_AUDIENCE,
-        )
-        user_id: str = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token: missing sub")
-        return {"user_id": user_id, "email": payload.get("email", "")}
-    except InvalidTokenError as exc:
+        db = get_db()
+        response = db.auth.get_user(token)
+        user = response.user
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        return {"user_id": str(user.id), "email": user.email or ""}
+    except HTTPException:
+        raise
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid or expired token: {exc}",
