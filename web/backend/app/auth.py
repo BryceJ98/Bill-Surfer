@@ -3,14 +3,15 @@ auth.py — Supabase JWT verification dependency
 """
 
 import os
+import jwt
+from jwt.exceptions import InvalidTokenError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
 
 bearer = HTTPBearer()
 
-JWT_SECRET   = os.getenv("SUPABASE_JWT_SECRET", "")
-JWT_AUDIENCE = "authenticated"
+JWT_SECRET    = os.getenv("SUPABASE_JWT_SECRET", "")
+JWT_AUDIENCE  = "authenticated"
 JWT_ALGORITHM = "HS256"
 
 
@@ -33,7 +34,7 @@ def get_current_user(
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token: missing sub")
         return {"user_id": user_id, "email": payload.get("email", "")}
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid or expired token: {exc}",
