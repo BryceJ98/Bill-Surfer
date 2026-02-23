@@ -76,6 +76,16 @@ export default function BodhiChat() {
             <span className="text-lg animate-wave">🏄</span>
             <span className="font-pixel text-xs" style={{ color: "var(--bg)" }}>BODHI_GUIDE.EXE</span>
             <span className="font-pixel text-xs ml-auto animate-blink" style={{ color: "var(--accent-lt, #F7894E)" }}>●LIVE</span>
+            {/* BUG-011: clear chat history */}
+            {messages.length > 0 && (
+              <button
+                onClick={() => setMessages([])}
+                className="font-pixel text-xs px-2"
+                style={{ color: "var(--bg)", opacity: 0.7, fontSize: "0.55rem" }}
+                title="Clear chat">
+                CLR
+              </button>
+            )}
           </div>
 
           {/* Messages */}

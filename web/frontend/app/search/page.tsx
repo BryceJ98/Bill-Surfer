@@ -16,7 +16,15 @@ export default function SearchPage() {
   const [results,    setResults]    = useState<any[]>([]);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState("");
+  const [exportError, setExportError] = useState("");
   const [added,      setAdded]      = useState<Set<string>>(new Set());
+
+  function switchTab(t: SearchType) {
+    setSearchType(t);
+    setResults([]);   // BUG-002: clear results on tab switch
+    setError("");
+    setExportError("");
+  }
 
   async function doSearch() {
     setError(""); setLoading(true); setResults([]);
@@ -34,12 +42,17 @@ export default function SearchPage() {
     setLoading(false);
   }
 
+  // BUG-003: Enter key triggers search from any input
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") doSearch();
+  }
+
   async function addToDocket(r: any) {
     const billId = String(r.bill_id ?? r.number ?? r.citation ?? Math.random());
     try {
       await docketApi.add({
         bill_id:     billId,
-        bill_number: String(r.bill_label ?? r.citation ?? r.number ?? billId),
+        bill_number: String(r.bill_number ?? r.bill_label ?? r.citation ?? r.number ?? billId),
         state:       String(r.state ?? (searchType === "state-bills" ? state : "US")),
         title:       String(r.title ?? r.description ?? r.topic ?? ""),
       });
@@ -50,13 +63,29 @@ export default function SearchPage() {
     }
   }
 
+  // BUG-006: show export errors
   async function doExport() {
-    await exportCsv({
-      export_type: searchType,
-      query:       query || undefined,
-      state:       searchType === "state-bills" ? state : undefined,
-      congress:    congress !== "" ? Number(congress) : undefined,
-    });
+    setExportError("");
+    try {
+      await exportCsv({
+        export_type: searchType,
+        query:       query || undefined,
+        state:       searchType === "state-bills" ? state : undefined,
+        congress:    congress !== "" ? Number(congress) : undefined,
+      });
+    } catch (e: any) {
+      setExportError(e.message ?? "Export failed");
+    }
+  }
+
+  // BUG-005: get external URL for a result
+  function getBillUrl(r: any): string | null {
+    return r.url ?? r.congress_url ?? r.legiscan_url ?? null;
+  }
+
+  // BUG-004: get bill number/label robustly
+  function getBillLabel(r: any): string {
+    return r.bill_label ?? r.bill_number ?? r.citation ?? r.number ?? "—";
   }
 
   const placeholder = searchType === "state-bills"
@@ -73,7 +102,7 @@ export default function SearchPage() {
         {/* Search type selector */}
         <div className="flex flex-wrap gap-2">
           {(["federal-bills","nominations","treaties","state-bills"] as SearchType[]).map((t) => (
-            <button key={t} onClick={() => setSearchType(t)}
+            <button key={t} onClick={() => switchTab(t)}
                     className="font-pixel text-xs px-3 py-2"
                     style={{
                       border:     "3px solid",
@@ -96,7 +125,7 @@ export default function SearchPage() {
                      placeholder={placeholder}
                      value={query}
                      onChange={(e) => setQuery(e.target.value)}
-                     onKeyDown={(e) => e.key === "Enter" && doSearch()} />
+                     onKeyDown={handleKeyDown} />
             )}
             {searchType === "state-bills" && (
               <select className="input-arcade w-24"
@@ -108,7 +137,8 @@ export default function SearchPage() {
               <input className="input-arcade w-28"
                      type="number" placeholder="Congress #"
                      value={congress}
-                     onChange={(e) => setCongress(e.target.value ? Number(e.target.value) : "")} />
+                     onChange={(e) => setCongress(e.target.value ? Number(e.target.value) : "")}
+                     onKeyDown={handleKeyDown} />
             )}
           </div>
 
@@ -125,7 +155,8 @@ export default function SearchPage() {
             )}
           </div>
 
-          {error && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ {error}</p>}
+          {error      && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ {error}</p>}
+          {exportError && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ Export failed: {exportError}</p>}
         </div>
 
         {/* Results */}
@@ -135,8 +166,10 @@ export default function SearchPage() {
               {results.length} RESULTS
             </p>
             {results.map((r, i) => {
-              const key = r.bill_id ?? r.citation ?? r.number ?? i;
+              const key     = r.bill_id ?? r.citation ?? r.number ?? i;
               const isAdded = added.has(String(key));
+              const extUrl  = getBillUrl(r);
+              const label   = getBillLabel(r);
               return (
                 <div key={i} className="card p-4 flex items-start gap-3">
                   <div className="flex-1 min-w-0">
@@ -145,9 +178,19 @@ export default function SearchPage() {
                             style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)", fontSize: "0.6rem" }}>
                         {r.state ?? r.congress ?? "US"}
                       </span>
+                      {/* BUG-004: show bill label with correct field fallback */}
                       <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.6rem" }}>
-                        {r.bill_label ?? r.citation ?? r.number ?? "—"}
+                        {label}
                       </span>
+                      {/* BUG-005: link to external source */}
+                      {extUrl && (
+                        <a href={extUrl} target="_blank" rel="noreferrer"
+                           className="font-pixel text-xs"
+                           style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}
+                           onClick={(e) => e.stopPropagation()}>
+                          ↗ VIEW
+                        </a>
+                      )}
                     </div>
                     <p className="font-mono text-sm leading-snug">{r.title ?? r.description ?? r.topic ?? "—"}</p>
                     {(r.status || r.status_date) && (

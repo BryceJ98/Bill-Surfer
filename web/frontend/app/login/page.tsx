@@ -24,6 +24,14 @@ const BODHI_SCRIPT = [
     ],
   },
   {
+    step:    "username",
+    emoji:   "👤",
+    lines: [
+      "Sick! What should I call you?",
+      "This shows up on your dashboard and reports.",
+    ],
+  },
+  {
     step:    "legiscan",
     emoji:   "📋",
     lines: [
@@ -70,7 +78,7 @@ const AI_OPTIONS = [
   { provider: "groq",      model: "groq/llama-3.1-70b-versatile", label: "Llama 3.1 70B  (Groq)" },
 ];
 
-type Step = "welcome" | "auth" | "check_email" | "legiscan" | "congress" | "ai" | "done";
+type Step = "welcome" | "auth" | "check_email" | "username" | "legiscan" | "congress" | "ai" | "done";
 
 export default function LoginPage() {
   const router    = useRouter();
@@ -83,6 +91,7 @@ export default function LoginPage() {
   const [typing,       setTyping]       = useState(true);
 
   const [email,         setEmail]         = useState("");
+  const [username,      setUsername]      = useState("");
   const [legiscanKey,   setLegiscanKey]   = useState("");
   const [congressKey,   setCongressKey]   = useState("");
   const [aiKey,         setAiKey]         = useState("");
@@ -121,12 +130,23 @@ export default function LoginPage() {
     setError(""); setLoading(true);
     const { error: err } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${location.origin}/login?step=legiscan` },
+      options: { emailRedirectTo: `${location.origin}/login` },
     });
     setLoading(false);
     if (err) { setError(err.message); return; }
     setStep("check_email");
     setLineIdx(0); setTyping(true);
+  }
+
+  async function handleUsername() {
+    setError(""); setLoading(true);
+    try {
+      if (username.trim()) {
+        await settingsApi.update({ display_name: username.trim() });
+      }
+      setStep("legiscan"); setLineIdx(0); setTyping(true);
+    } catch (e: any) { setError(e.message); }
+    setLoading(false);
   }
 
   async function handleLegiScan() {
@@ -157,16 +177,27 @@ export default function LoginPage() {
     setLoading(false);
   }
 
-  // Check for redirect back from magic link
+  // Check for redirect back from magic link — detect returning vs new user
   useEffect(() => {
-    supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === "SIGNED_IN") {
-        const url = new URL(location.href);
-        const nextStep = url.searchParams.get("step") as Step | null;
-        setStep(nextStep ?? "legiscan");
+        // Check if this is a returning user who already has API keys configured
+        try {
+          const keyStatuses = await keysApi.list();
+          const hasAiKey = keyStatuses.some((k) => k.stored &&
+            ["anthropic", "openai", "google", "groq", "mistral"].includes(k.provider));
+          if (hasAiKey) {
+            // Returning user — skip straight to dashboard
+            router.push("/dashboard");
+            return;
+          }
+        } catch {}
+        // New user — start onboarding from username step
+        setStep("username");
         setLineIdx(0); setTyping(true);
       }
     });
+    return () => subscription.unsubscribe();
   }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -245,12 +276,36 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* ── Username ── */}
+          {step === "username" && (
+            <div className="flex flex-col gap-3">
+              <label className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>DISPLAY_NAME</label>
+              <input className="input-arcade"
+                     placeholder="Dr. Jane Smith"
+                     value={username}
+                     onChange={(e) => setUsername(e.target.value)}
+                     onKeyDown={(e) => e.key === "Enter" && handleUsername()} />
+              <div className="flex gap-2">
+                <button className="btn-arcade-outline flex-1 font-pixel text-xs"
+                        onClick={() => { setStep("legiscan"); setLineIdx(0); setTyping(true); }}>
+                  SKIP
+                </button>
+                <button className="btn-arcade flex-1 font-pixel text-xs"
+                        onClick={handleUsername} disabled={loading}>
+                  {loading ? "SAVING..." : "▶ SAVE NAME"}
+                </button>
+              </div>
+              {error && <p className="font-pixel text-xs" style={{ color: "#e53e3e" }}>{error}</p>}
+            </div>
+          )}
+
           {/* ── LegiScan key ── */}
           {step === "legiscan" && (
             <div className="flex flex-col gap-3">
               <label className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>LEGISCAN_API_KEY</label>
               <input className="input-arcade" type="password" placeholder="Paste key here..."
-                     value={legiscanKey} onChange={(e) => setLegiscanKey(e.target.value)} />
+                     value={legiscanKey} onChange={(e) => setLegiscanKey(e.target.value)}
+                     onKeyDown={(e) => e.key === "Enter" && legiscanKey && handleLegiScan()} />
               <a href="https://legiscan.com/legiscan" target="_blank" rel="noreferrer"
                  className="font-pixel text-xs" style={{ color: "var(--accent)" }}>
                 ↗ GET FREE KEY AT LEGISCAN.COM
@@ -274,7 +329,8 @@ export default function LoginPage() {
             <div className="flex flex-col gap-3">
               <label className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>CONGRESS_API_KEY</label>
               <input className="input-arcade" type="password" placeholder="Paste key here..."
-                     value={congressKey} onChange={(e) => setCongressKey(e.target.value)} />
+                     value={congressKey} onChange={(e) => setCongressKey(e.target.value)}
+                     onKeyDown={(e) => e.key === "Enter" && congressKey && handleCongress()} />
               <a href="https://api.congress.gov/sign-up/" target="_blank" rel="noreferrer"
                  className="font-pixel text-xs" style={{ color: "var(--accent)" }}>
                 ↗ GET FREE KEY AT API.CONGRESS.GOV
@@ -317,7 +373,8 @@ export default function LoginPage() {
                 {selectedAi.provider.toUpperCase()}_API_KEY
               </label>
               <input className="input-arcade" type="password" placeholder="Paste key here..."
-                     value={aiKey} onChange={(e) => setAiKey(e.target.value)} />
+                     value={aiKey} onChange={(e) => setAiKey(e.target.value)}
+                     onKeyDown={(e) => e.key === "Enter" && aiKey && handleAi()} />
               <button className="btn-arcade w-full font-pixel text-xs"
                       onClick={handleAi} disabled={loading || !aiKey}>
                 {loading ? "CONNECTING..." : "▶ CONNECT AI"}
@@ -345,10 +402,10 @@ export default function LoginPage() {
 
       {/* Step indicator */}
       <div className="flex gap-2 mt-6">
-        {(["auth","legiscan","congress","ai","done"] as Step[]).map((s, i) => (
+        {(["auth","username","legiscan","congress","ai","done"] as Step[]).map((s, i) => (
           <span key={s}
                 className="w-3 h-3 inline-block"
-                style={{ background: ["auth","legiscan","congress","ai","done"].indexOf(step) >= i
+                style={{ background: ["auth","username","legiscan","congress","ai","done"].indexOf(step) >= i
                   ? "var(--accent)" : "var(--text-muted)" }} />
         ))}
       </div>

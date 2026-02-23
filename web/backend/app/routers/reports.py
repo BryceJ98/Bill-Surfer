@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.auth import get_current_user
-from app.db import get_db
+from app.db import get_db, log_api_usage
 from app.routers.keys import get_user_key
 
 router = APIRouter()
@@ -84,12 +84,14 @@ def _run_report_generation(
     from app.report_generator import generate_report
     db = get_db()
     try:
-        content_json, pdf_bytes = generate_report(
+        content_json, pdf_bytes, total_tokens = generate_report(
             bill_id=bill_id, bill_number=bill_number, state=state,
             title=title, report_type=report_type,
             ai_provider=ai_provider, ai_model=ai_model, ai_api_key=ai_key,
             congress_api_key=congress_key, legiscan_api_key=legiscan_key,
         )
+        if total_tokens:
+            log_api_usage(user_id, ai_provider, calls=0, tokens=total_tokens)
 
         # Upload PDF to Supabase Storage
         pdf_path = f"{user_id}/{report_id}.pdf"
@@ -118,7 +120,7 @@ def list_reports(user=Depends(get_current_user)):
     db = get_db()
     rows = (
         db.table("reports")
-        .select("id, bill_id, bill_number, state, title, report_type, ai_model, status, is_public, created_at")
+        .select("id, bill_id, bill_number, state, title, report_type, ai_model, status, is_public, created_at, error_message")
         .eq("user_id", user["user_id"])
         .order("created_at", desc=True)
         .execute()

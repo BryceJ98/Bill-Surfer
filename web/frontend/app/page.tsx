@@ -21,21 +21,24 @@ export default function LandingPage() {
         <div className="mt-4 text-4xl animate-wave inline-block">🏄</div>
       </div>
 
-      {/* Feature grid */}
+      {/* Feature grid — BUG-015: cards are now clickable */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl w-full mb-10">
         {[
-          { icon: "📜", label: "SEARCH BILLS",   desc: "Federal + all 50 states" },
-          { icon: "🗳️", label: "TRACK DOCKET",   desc: "Your personal bill watchlist" },
-          { icon: "📊", label: "GEN REPORTS",    desc: "AI policy impact reports" },
-          { icon: "🤝", label: "NOMINATIONS",    desc: "Presidential confirmations" },
-          { icon: "📤", label: "CSV EXPORT",     desc: "Download any dataset" },
-          { icon: "🤖", label: "BODHI CHAT",     desc: "Your AI surf/ski guide" },
+          { icon: "📜", label: "SEARCH BILLS",   desc: "Federal + all 50 states",        href: "/login" },
+          { icon: "🗳️", label: "TRACK DOCKET",   desc: "Your personal bill watchlist",   href: "/login" },
+          { icon: "📊", label: "GEN REPORTS",    desc: "AI policy impact reports",        href: "/login" },
+          { icon: "🤝", label: "NOMINATIONS",    desc: "Presidential confirmations",      href: "/login" },
+          { icon: "📤", label: "CSV EXPORT",     desc: "Download any dataset",            href: "/login" },
+          { icon: "🤖", label: "BODHI CHAT",     desc: "Your AI surf/ski guide",          href: "/login" },
         ].map((f) => (
-          <div key={f.label} className="card p-4 text-center">
-            <div className="text-2xl mb-2">{f.icon}</div>
-            <p className="font-pixel text-xs mb-1" style={{ color: "var(--accent)" }}>{f.label}</p>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{f.desc}</p>
-          </div>
+          <Link key={f.label} href={f.href}>
+            <div className="card p-4 text-center cursor-pointer transition-transform hover:scale-105"
+                 style={{ transition: "transform 0.1s" }}>
+              <div className="text-2xl mb-2">{f.icon}</div>
+              <p className="font-pixel text-xs mb-1" style={{ color: "var(--accent)" }}>{f.label}</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{f.desc}</p>
+            </div>
+          </Link>
         ))}
       </div>
 

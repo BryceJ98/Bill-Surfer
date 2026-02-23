@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.auth import get_current_user
+from app.db import get_db, log_api_usage
 from app.routers.keys import get_user_key
 from app.tools import congress_client as cc
 from app.tools import legiscan_client as lc
@@ -46,6 +47,7 @@ def export_csv(body: ExportRequest, user=Depends(get_current_user)):
             api_key=congress_key,
         )
         rows = result.get("nominations", [])
+        log_api_usage(user_id, "congress")
 
     elif body.export_type == "treaties":
         if not congress_key:
@@ -55,6 +57,7 @@ def export_csv(body: ExportRequest, user=Depends(get_current_user)):
             limit=body.limit, api_key=congress_key,
         )
         rows = result.get("treaties", [])
+        log_api_usage(user_id, "congress")
 
     elif body.export_type == "federal-bills":
         if not congress_key:
@@ -65,6 +68,7 @@ def export_csv(body: ExportRequest, user=Depends(get_current_user)):
             limit=body.limit, api_key=congress_key,
         )
         rows = result.get("bills", [])
+        log_api_usage(user_id, "congress")
 
     elif body.export_type == "state-bills":
         if not legiscan_key:
@@ -77,6 +81,7 @@ def export_csv(body: ExportRequest, user=Depends(get_current_user)):
         )
         raw = result.get("bills") or result if isinstance(result, dict) else result
         rows = raw[:body.limit] if isinstance(raw, list) else []
+        log_api_usage(user_id, "legiscan")
 
     elif body.export_type == "members":
         if not congress_key:
@@ -86,6 +91,7 @@ def export_csv(body: ExportRequest, user=Depends(get_current_user)):
             limit=body.limit, api_key=congress_key,
         )
         rows = result.get("members", [])
+        log_api_usage(user_id, "congress")
 
     if not rows:
         raise HTTPException(status_code=404, detail="No data found for these parameters")

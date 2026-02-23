@@ -170,8 +170,8 @@ def _call_ai(
     ai_model: str,
     ai_api_key: str,
     report_type: str = "policy_impact",
-) -> dict:
-    """Call the user's AI model and return structured report JSON."""
+) -> tuple[dict, int]:
+    """Call the user's AI model and return (structured report JSON, tokens used)."""
     bill_info = json.dumps(bill_data, default=str, indent=2)
     user_msg = (
         f"Generate a {report_type} report for this bill. "
@@ -189,13 +189,15 @@ def _call_ai(
             temperature=0.2,
             max_tokens=4096,
         )
+        usage = getattr(response, "usage", None)
+        tokens_used = getattr(usage, "total_tokens", 0) or 0
         raw = response.choices[0].message.content.strip()
         # Strip any accidental markdown fences
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
-        return json.loads(raw)
+        return json.loads(raw), tokens_used
     except json.JSONDecodeError as exc:
         raise ValueError(f"AI returned invalid JSON: {exc}")
     except Exception as exc:
@@ -338,12 +340,12 @@ def generate_report(
     ai_api_key:       str,
     congress_api_key: str | None = None,
     legiscan_api_key: str | None = None,
-) -> tuple[dict, bytes]:
+) -> tuple[dict, bytes, int]:
     """
     Generate a policy impact report for a bill.
 
     Returns:
-        (content_json: dict, pdf_bytes: bytes)
+        (content_json: dict, pdf_bytes: bytes, total_tokens: int)
     """
     # 1. Fetch bill data
     bill_data = _fetch_bill_data(bill_id, state, congress_api_key, legiscan_api_key)
@@ -351,7 +353,7 @@ def generate_report(
     bill_data["bill_number"] = bill_number
 
     # 2. AI-generated content
-    content = _call_ai(bill_data, ai_provider, ai_model, ai_api_key, report_type)
+    content, total_tokens = _call_ai(bill_data, ai_provider, ai_model, ai_api_key, report_type)
 
     # 3. Render PDF
     bill_info = {
@@ -363,4 +365,4 @@ def generate_report(
     }
     pdf_bytes = _render_pdf(content, bill_info)
 
-    return content, pdf_bytes
+    return content, pdf_bytes, total_tokens

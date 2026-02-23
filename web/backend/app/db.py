@@ -17,3 +17,18 @@ def get_db() -> Client:
             raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
         _client = create_client(url, key)
     return _client
+
+
+def log_api_usage(user_id: str, provider: str, calls: int = 1, tokens: int = 0) -> None:
+    """Best-effort usage logging. Never raises, never blocks the calling request."""
+    try:
+        from datetime import date
+        get_db().rpc("increment_api_usage", {
+            "p_user_id": user_id,
+            "p_provider": provider,
+            "p_month":    date.today().strftime("%Y-%m"),
+            "p_calls":    calls,
+            "p_tokens":   tokens,
+        }).execute()
+    except Exception:
+        pass

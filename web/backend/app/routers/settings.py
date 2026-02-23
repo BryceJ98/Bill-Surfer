@@ -99,6 +99,16 @@ def get_scoreboard(user=Depends(get_current_user)):
     ai_model    = settings.data[0]["ai_model"]    if settings.data else "—"
     ai_provider = settings.data[0]["ai_provider"] if settings.data else "—"
 
+    # API usage this month
+    this_month = date.today().strftime("%Y-%m")
+    usage_rows = (
+        db.table("api_usage")
+        .select("provider, call_count, token_count")
+        .eq("user_id", user_id)
+        .eq("month", this_month)
+        .execute()
+    )
+
     return {
         "docket_count":        docket_count,
         "reports_total":       reports_total,
@@ -106,4 +116,5 @@ def get_scoreboard(user=Depends(get_current_user)):
         "ai_model":            ai_model,
         "ai_provider":         ai_provider,
         "date":                today,
+        "usage":               usage_rows.data or [],
     }

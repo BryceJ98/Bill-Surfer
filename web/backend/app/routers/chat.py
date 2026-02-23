@@ -11,7 +11,7 @@ from pydantic import BaseModel
 import litellm
 
 from app.auth import get_current_user
-from app.db import get_db
+from app.db import get_db, log_api_usage
 from app.routers.keys import get_user_key
 from app.tools import congress_client as cc
 from app.tools import legiscan_client as lc
@@ -103,19 +103,28 @@ TOOLS = [
 ]
 
 
-def _dispatch_tool(name: str, args: dict, congress_key: str | None, legiscan_key: str | None) -> str:
+def _dispatch_tool(
+    name: str, args: dict,
+    congress_key: str | None, legiscan_key: str | None,
+    user_id: str, db,
+) -> str:
     """Execute a tool call and return the result as a JSON string."""
     try:
         if name == "search_federal_bills":
             r = cc.search_bills(args["query"], congress=args.get("congress"), limit=args.get("limit", 10), api_key=congress_key)
+            log_api_usage(user_id, "congress")
         elif name == "search_nominations":
             r = cc.search_nominations(congress=args.get("congress"), query=args.get("query"), limit=args.get("limit", 10), api_key=congress_key)
+            log_api_usage(user_id, "congress")
         elif name == "search_state_bills":
             r = lc.search_bills(args["query"], state=args["state"], year=args.get("year", 2), api_key=legiscan_key)
+            log_api_usage(user_id, "legiscan")
         elif name == "get_federal_bill":
             r = cc.get_bill(args["congress"], args["bill_type"], args["bill_number"], api_key=congress_key)
+            log_api_usage(user_id, "congress")
         elif name == "search_treaties":
             r = cc.search_treaties(congress=args.get("congress"), limit=args.get("limit", 10), api_key=congress_key)
+            log_api_usage(user_id, "congress")
         else:
             r = {"error": f"Unknown tool: {name}"}
     except Exception as exc:
@@ -183,6 +192,12 @@ def chat(body: ChatRequest, user=Depends(get_current_user)):
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"AI provider error: {exc}")
 
+        # Log AI token usage
+        usage = getattr(response, "usage", None)
+        total_tokens = getattr(usage, "total_tokens", 0) or 0
+        if total_tokens:
+            log_api_usage(user_id, ai_provider, calls=0, tokens=total_tokens)
+
         msg = response.choices[0].message if response.choices else None
         if not msg:
             raise HTTPException(status_code=502, detail="Empty response from AI provider")
@@ -197,7 +212,7 @@ def chat(body: ChatRequest, user=Depends(get_current_user)):
                 args = json.loads(tc.function.arguments)
             except (json.JSONDecodeError, TypeError):
                 args = {}
-            result = _dispatch_tool(tc.function.name, args, congress_key, legiscan_key)
+            result = _dispatch_tool(tc.function.name, args, congress_key, legiscan_key, user_id, db)
             messages.append({
                 "role":         "tool",
                 "tool_call_id": tc.id,

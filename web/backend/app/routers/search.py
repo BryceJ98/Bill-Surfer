@@ -5,6 +5,7 @@ search.py — Search bills, nominations, and treaties using the user's own API k
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.auth import get_current_user
+from app.db import get_db, log_api_usage
 from app.routers.keys import get_user_key
 from app.tools import congress_client as cc
 from app.tools import legiscan_client as lc
@@ -36,6 +37,7 @@ def search_federal_bills(
     result = cc.search_bills(q, congress=congress, limit=limit, api_key=api_key)
     if "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
+    log_api_usage(user["user_id"], "congress")
     return result
 
 
@@ -53,6 +55,7 @@ def search_nominations(
     result = cc.search_nominations(congress=congress, query=q, limit=limit, api_key=api_key)
     if "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
+    log_api_usage(user["user_id"], "congress")
     return result
 
 
@@ -69,6 +72,7 @@ def search_treaties(
     result = cc.search_treaties(congress=congress, limit=limit, api_key=api_key)
     if "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
+    log_api_usage(user["user_id"], "congress")
     return result
 
 
@@ -87,6 +91,7 @@ def search_state_bills(
     result = lc.search_bills(q, state=state.upper(), year=year or 2, api_key=api_key)
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
+    log_api_usage(user["user_id"], "legiscan")
     bills = (result.get("bills") or result) if isinstance(result, dict) else result
     return {"bills": bills[:limit], "query": q, "state": state.upper()}
 
@@ -105,6 +110,7 @@ def get_federal_bill(
     result = cc.get_bill(congress, bill_type, bill_number, api_key=api_key)
     if "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
+    log_api_usage(user["user_id"], "congress")
     return result
 
 
@@ -117,4 +123,5 @@ def get_state_bill(
     result = lc.get_bill(bill_id, api_key=api_key)
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
+    log_api_usage(user["user_id"], "legiscan")
     return result

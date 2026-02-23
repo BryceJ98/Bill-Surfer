@@ -24,6 +24,7 @@ export default function ReportsPage() {
   const [loading,    setLoading]    = useState(false);
   const [polling,    setPolling]    = useState(false);
   const [loadError,  setLoadError]  = useState("");
+  const [expanded,   setExpanded]   = useState<string | null>(null); // BUG-008: expanded row
   const [form, setForm] = useState<ReportRequest & { report_type: string }>({
     bill_id: "", bill_number: "", state: "", title: "", report_type: "policy_impact",
   });
@@ -38,7 +39,7 @@ export default function ReportsPage() {
     loadLibrary();
   }, []);
 
-  // Poll while any report is generating
+  // Poll while any report is generating or pending
   useEffect(() => {
     const generating = library.some((r) => r.status === "generating" || r.status === "pending");
     if (generating && !polling) {
@@ -157,55 +158,92 @@ export default function ReportsPage() {
           )
           : (
             <div className="flex flex-col gap-3">
-              {library.map((r) => (
-                <div key={r.id} className="card p-4">
-                  <div className="flex items-start gap-3 flex-wrap">
-                    {/* State badge */}
-                    <span className="font-pixel text-xs px-2 py-1 flex-shrink-0"
-                          style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)" }}>
-                      {r.state}
-                    </span>
+              {library.map((r) => {
+                const isExpanded = expanded === r.id;
+                const isActive   = r.status === "generating" || r.status === "pending";
+                return (
+                  <div key={r.id} className="card p-4">
+                    {/* BUG-008: clicking the row body toggles expanded detail */}
+                    <div className="flex items-start gap-3 flex-wrap cursor-pointer"
+                         onClick={() => setExpanded(isExpanded ? null : r.id)}>
+                      {/* State badge */}
+                      <span className="font-pixel text-xs px-2 py-1 flex-shrink-0"
+                            style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)" }}>
+                        {r.state}
+                      </span>
 
-                    {/* Title + meta */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-mono text-sm">{r.title}</p>
-                      <div className="flex flex-wrap gap-3 mt-1">
-                        <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>{r.bill_number}</span>
-                        <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>{r.report_type.replace("_"," ").toUpperCase()}</span>
-                        <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>{r.ai_model?.split("/").pop()?.toUpperCase()}</span>
-                        <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>{new Date(r.created_at).toLocaleDateString()}</span>
+                      {/* Title + meta */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-mono text-sm">{r.title}</p>
+                        <div className="flex flex-wrap gap-3 mt-1">
+                          <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>{r.bill_number}</span>
+                          <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>{r.report_type.replace("_"," ").toUpperCase()}</span>
+                          <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>{r.ai_model?.split("/").pop()?.toUpperCase()}</span>
+                          <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>{new Date(r.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      {/* Status + actions */}
+                      <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {/* BUG-016: spinner for in-progress */}
+                        <span className="font-pixel text-xs"
+                              style={{ color: STATUS_COLOR[r.status], fontSize: "0.6rem" }}
+                              title={r.status}>
+                          {isActive ? "⟳ " : "● "}{r.status.toUpperCase()}
+                        </span>
+
+                        {r.status === "complete" && (
+                          <a href={reportsApi.pdfUrl(r.id)}
+                             className="btn-arcade-outline font-pixel"
+                             style={{ fontSize: "0.6rem", padding: "4px 8px" }}
+                             target="_blank" rel="noreferrer">
+                            ↓ PDF
+                          </a>
+                        )}
+
+                        <button onClick={() => deleteReport(r.id)}
+                                className="font-pixel text-xs px-2 py-1"
+                                style={{ border: "2px solid #c53030", color: "#c53030" }}>
+                          ✕
+                        </button>
                       </div>
                     </div>
 
-                    {/* Status + actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="font-pixel text-xs animate-pulse" style={{ color: STATUS_COLOR[r.status], fontSize: "0.6rem" }}>
-                        ● {r.status.toUpperCase()}
-                      </span>
+                    {/* BUG-007: show error_message from backend */}
+                    {r.status === "error" && (r.error_message || r.content_json?.error) && (
+                      <p className="font-mono text-xs mt-2 p-2"
+                         style={{ background: "#fff0f0", color: "#c53030", border: "1px solid #c53030" }}>
+                        ⚠ {r.error_message ?? r.content_json?.error}
+                      </p>
+                    )}
 
-                      {r.status === "complete" && (
-                        <a href={reportsApi.pdfUrl(r.id)}
-                           className="btn-arcade-outline font-pixel"
-                           style={{ fontSize: "0.6rem", padding: "4px 8px" }}
-                           target="_blank" rel="noreferrer">
-                          ↓ PDF
+                    {/* BUG-016: pending/generating message */}
+                    {isActive && (
+                      <p className="font-pixel mt-2" style={{ color: "#856404", fontSize: "0.55rem" }}>
+                        ⟳ Generation in progress — refreshing every 5 seconds...
+                      </p>
+                    )}
+
+                    {/* BUG-008: expanded executive summary preview */}
+                    {isExpanded && r.status === "complete" && r.content_json && (
+                      <div className="mt-3 p-3"
+                           style={{ borderTop: "2px dashed var(--border)" }}>
+                        <p className="font-pixel text-xs mb-2" style={{ color: "var(--accent)", fontSize: "0.6rem" }}>
+                          EXECUTIVE SUMMARY
+                        </p>
+                        <p className="font-mono text-xs leading-relaxed" style={{ color: "var(--text)" }}>
+                          {r.content_json.executive_summary ?? "No summary available."}
+                        </p>
+                        <a href={reportsApi.pdfUrl(r.id)} target="_blank" rel="noreferrer"
+                           className="btn-arcade font-pixel text-xs inline-block mt-3"
+                           style={{ fontSize: "0.6rem", padding: "6px 12px" }}>
+                          ↓ DOWNLOAD FULL PDF
                         </a>
-                      )}
-
-                      <button onClick={() => deleteReport(r.id)}
-                              className="font-pixel text-xs px-2 py-1"
-                              style={{ border: "2px solid #c53030", color: "#c53030" }}>
-                        ✕
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
-
-                  {/* Error message */}
-                  {r.status === "error" && r.content_json?.error && (
-                    <p className="font-mono text-xs mt-2" style={{ color: "#c53030" }}>{r.content_json.error}</p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )
         }

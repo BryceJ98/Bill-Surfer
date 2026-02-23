@@ -68,20 +68,23 @@ export default function Dashboard() {
               : (
                 <div className="flex flex-col gap-2">
                   {docketItems.map((item) => (
-                    <div key={item.id} className="card p-3 flex items-start gap-3">
-                      <span className="font-pixel text-xs px-2 py-1 flex-shrink-0"
-                            style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)" }}>
-                        {item.state}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-mono text-xs truncate">{item.title ?? item.bill_number}</p>
-                        {item.stance && (
-                          <span className="font-pixel text-xs" style={{ color: STANCE_COLOR[item.stance] ?? "#555", fontSize: "0.55rem" }}>
-                            ● {item.stance.toUpperCase()}
-                          </span>
-                        )}
+                    <Link key={item.id} href="/docket">
+                      <div className="card p-3 flex items-start gap-3 cursor-pointer"
+                           style={{ transition: "opacity 0.1s" }}>
+                        <span className="font-pixel text-xs px-2 py-1 flex-shrink-0"
+                              style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)" }}>
+                          {item.state}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-xs truncate">{item.title ?? item.bill_number}</p>
+                          {item.stance && (
+                            <span className="font-pixel text-xs" style={{ color: STANCE_COLOR[item.stance] ?? "#555", fontSize: "0.55rem" }}>
+                              ● {item.stance.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )
@@ -99,28 +102,31 @@ export default function Dashboard() {
               : (
                 <div className="flex flex-col gap-2">
                   {recentReports.map((r) => (
-                    <div key={r.id} className="card p-3">
-                      <div className="flex items-start gap-2">
-                        <span className="font-pixel text-xs px-2 py-1 flex-shrink-0"
-                              style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)" }}>
-                          {r.state}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-mono text-xs truncate">{r.title}</p>
-                          <span className="font-pixel text-xs" style={{ color: STATUS_COLOR[r.status] ?? "#555", fontSize: "0.55rem" }}>
-                            ● {r.status.toUpperCase()}
+                    <Link key={r.id} href="/reports">
+                      <div className="card p-3 cursor-pointer">
+                        <div className="flex items-start gap-2">
+                          <span className="font-pixel text-xs px-2 py-1 flex-shrink-0"
+                                style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)" }}>
+                            {r.state}
                           </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-xs truncate">{r.title}</p>
+                            <span className="font-pixel text-xs" style={{ color: STATUS_COLOR[r.status] ?? "#555", fontSize: "0.55rem" }}>
+                              ● {r.status.toUpperCase()}
+                            </span>
+                          </div>
+                          {r.status === "complete" && (
+                            <a href={reportsApi.pdfUrl(r.id)}
+                               className="font-pixel text-xs flex-shrink-0"
+                               style={{ color: "var(--accent)" }}
+                               target="_blank" rel="noreferrer"
+                               onClick={(e) => e.stopPropagation()}>
+                              PDF ↗
+                            </a>
+                          )}
                         </div>
-                        {r.status === "complete" && (
-                          <a href={reportsApi.pdfUrl(r.id)}
-                             className="font-pixel text-xs flex-shrink-0"
-                             style={{ color: "var(--accent)" }}
-                             target="_blank" rel="noreferrer">
-                            PDF ↗
-                          </a>
-                        )}
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )

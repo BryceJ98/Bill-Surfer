@@ -29,6 +29,8 @@ export default function SettingsPage() {
   const [saving, setSaving]           = useState<Record<string, boolean>>({});
   const [saved, setSaved]             = useState<Record<string, boolean>>({});
   const [profile, setProfile]         = useState({ display_name: "", institution: "" });
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState("");
 
   useEffect(() => {
     keysApi.list().then(setStoredKeys).catch(() => {});
@@ -79,11 +81,14 @@ export default function SettingsPage() {
   }
 
   async function saveProfile() {
+    setProfileError("");
+    setProfileSaved(false);
     try {
       await settingsApi.update(profile);
-      alert("Profile saved!");
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3000);
     } catch (e: any) {
-      alert(`Failed to save profile: ${e.message}`);
+      setProfileError(e.message);
     }
   }
 
@@ -109,7 +114,15 @@ export default function SettingsPage() {
                      onChange={(e) => setProfile({ ...profile, institution: e.target.value })} placeholder="University of ..." />
             </div>
           </div>
-          <button className="btn-arcade font-pixel text-xs self-start" onClick={saveProfile}>▶ SAVE PROFILE</button>
+          <div className="flex items-center gap-3">
+            <button className="btn-arcade font-pixel text-xs" onClick={saveProfile}>▶ SAVE PROFILE</button>
+            {profileSaved && (
+              <span className="font-pixel text-xs" style={{ color: "#2D7A4F" }}>✓ SAVED!</span>
+            )}
+            {profileError && (
+              <span className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ {profileError}</span>
+            )}
+          </div>
         </section>
 
         {/* API Keys */}
