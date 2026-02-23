@@ -19,8 +19,13 @@ export default function DocketPage() {
   const [editing,   setEditing]   = useState<string | null>(null);
   const [editData,  setEditData]  = useState<Partial<DocketItem>>({});
   const [filter,    setFilter]    = useState<string>("all");
+  const [loadError, setLoadError] = useState("");
 
-  function load() { docketApi.list().then(setItems).catch(() => {}); }
+  function load() {
+    docketApi.list()
+      .then(setItems)
+      .catch((e: any) => setLoadError(e.message));
+  }
   useEffect(load, []);
 
   const filtered = filter === "all" ? items : items.filter((i) => i.stance === filter || i.priority === filter);
@@ -31,21 +36,35 @@ export default function DocketPage() {
   }
 
   async function saveEdit(id: string) {
-    await docketApi.update(id, editData);
-    setEditing(null);
-    load();
+    try {
+      await docketApi.update(id, editData);
+      setEditing(null);
+      load();
+    } catch (e: any) {
+      alert(`Failed to save: ${e.message}`);
+    }
   }
 
   async function remove(id: string) {
     if (!confirm("Remove from docket?")) return;
-    await docketApi.remove(id);
-    load();
+    try {
+      await docketApi.remove(id);
+      load();
+    } catch (e: any) {
+      alert(`Failed to remove: ${e.message}`);
+    }
   }
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <NavBar />
       <main className="max-w-5xl mx-auto p-6 flex flex-col gap-6">
+
+        {loadError && (
+          <p className="font-pixel text-xs p-3" style={{ background: "#c53030", color: "#fff", border: "3px solid #8b0000" }}>
+            ⚠ {loadError}
+          </p>
+        )}
 
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="font-pixel text-sm" style={{ color: "var(--accent)" }}>

@@ -171,14 +171,21 @@ def chat(body: ChatRequest, user=Depends(get_current_user)):
 
     # Agentic loop — keep calling until no more tool calls
     for _ in range(8):  # max 8 tool-call rounds
-        response = litellm.completion(
-            model=ai_model,
-            api_key=ai_key,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto",
-        )
-        msg = response.choices[0].message
+        try:
+            response = litellm.completion(
+                model=ai_model,
+                api_key=ai_key,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+                timeout=60,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"AI provider error: {exc}")
+
+        msg = response.choices[0].message if response.choices else None
+        if not msg:
+            raise HTTPException(status_code=502, detail="Empty response from AI provider")
 
         if not msg.tool_calls:
             return {"role": "assistant", "content": msg.content or ""}
@@ -186,7 +193,10 @@ def chat(body: ChatRequest, user=Depends(get_current_user)):
         # Execute tool calls
         messages.append(msg.model_dump(exclude_none=True))
         for tc in msg.tool_calls:
-            args   = json.loads(tc.function.arguments)
+            try:
+                args = json.loads(tc.function.arguments)
+            except (json.JSONDecodeError, TypeError):
+                args = {}
             result = _dispatch_tool(tc.function.name, args, congress_key, legiscan_key)
             messages.append({
                 "role":         "tool",

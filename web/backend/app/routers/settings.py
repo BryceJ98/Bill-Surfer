@@ -47,6 +47,14 @@ def update_settings(body: SettingsUpdate, user=Depends(get_current_user)):
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
+    # Validate ai_provider and ai_model when provided
+    if "ai_provider" in updates and updates["ai_provider"] not in AI_MODELS:
+        raise HTTPException(status_code=400, detail=f"Unknown AI provider: {updates['ai_provider']}")
+    if "ai_model" in updates and "ai_provider" in updates:
+        allowed = AI_MODELS.get(updates["ai_provider"], [])
+        if updates["ai_model"] not in allowed:
+            raise HTTPException(status_code=400, detail=f"Unknown model '{updates['ai_model']}' for provider '{updates['ai_provider']}'")
+
     db.table("user_settings").upsert(
         {"user_id": user["user_id"], **updates},
         on_conflict="user_id"

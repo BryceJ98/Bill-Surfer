@@ -23,12 +23,15 @@ export default function ReportsPage() {
   const [showForm,   setShowForm]   = useState(false);
   const [loading,    setLoading]    = useState(false);
   const [polling,    setPolling]    = useState(false);
+  const [loadError,  setLoadError]  = useState("");
   const [form, setForm] = useState<ReportRequest & { report_type: string }>({
     bill_id: "", bill_number: "", state: "", title: "", report_type: "policy_impact",
   });
 
   function loadLibrary() {
-    reportsApi.list().then(setLibrary).catch(() => {});
+    reportsApi.list()
+      .then(setLibrary)
+      .catch((e: any) => setLoadError(e.message));
   }
 
   useEffect(() => {
@@ -60,14 +63,24 @@ export default function ReportsPage() {
 
   async function deleteReport(id: string) {
     if (!confirm("Delete this report?")) return;
-    await reportsApi.remove(id);
-    loadLibrary();
+    try {
+      await reportsApi.remove(id);
+      loadLibrary();
+    } catch (e: any) {
+      alert(`Failed to delete: ${e.message}`);
+    }
   }
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       <NavBar />
       <main className="max-w-5xl mx-auto p-6 flex flex-col gap-6">
+
+        {loadError && (
+          <p className="font-pixel text-xs p-3" style={{ background: "#c53030", color: "#fff", border: "3px solid #8b0000" }}>
+            ⚠ {loadError}
+          </p>
+        )}
 
         {/* Header */}
         <div className="flex items-center justify-between">

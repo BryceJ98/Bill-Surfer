@@ -14,7 +14,7 @@ export default function Scoreboard() {
         { label: "BILLS IN DOCKET", value: data.docket_count,   icon: "📋" },
         { label: "REPORTS TODAY",   value: data.reports_today,  icon: "📊" },
         { label: "REPORTS TOTAL",   value: data.reports_total,  icon: "🗂️" },
-        { label: "AI MODEL",        value: data.ai_model.split("/").pop()?.toUpperCase().slice(0,12) ?? "—", icon: "🤖" },
+        { label: "AI MODEL",        value: (data.ai_model ?? "—").split("/").pop()?.toUpperCase().slice(0,12) ?? "—", icon: "🤖" },
       ]
     : Array(4).fill({ label: "...", value: "—", icon: "⬛" });
 

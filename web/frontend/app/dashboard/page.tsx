@@ -7,12 +7,17 @@ import { docket as docketApi, reports as reportsApi, type DocketItem, type Repor
 import Link from "next/link";
 
 export default function Dashboard() {
-  const [docketItems,  setDocketItems]  = useState<DocketItem[]>([]);
+  const [docketItems,   setDocketItems]   = useState<DocketItem[]>([]);
   const [recentReports, setRecentReports] = useState<Report[]>([]);
+  const [loadError,     setLoadError]     = useState("");
 
   useEffect(() => {
-    docketApi.list().then((d) => setDocketItems(d.slice(0, 5))).catch(() => {});
-    reportsApi.list().then((r) => setRecentReports(r.slice(0, 5))).catch(() => {});
+    docketApi.list()
+      .then((d) => setDocketItems(d.slice(0, 5)))
+      .catch((e: any) => setLoadError(e.message));
+    reportsApi.list()
+      .then((r) => setRecentReports(r.slice(0, 5)))
+      .catch((e: any) => setLoadError(e.message));
   }, []);
 
   const STANCE_COLOR: Record<string, string> = {
@@ -28,6 +33,12 @@ export default function Dashboard() {
       <NavBar />
 
       <main className="max-w-5xl mx-auto p-6 flex flex-col gap-6">
+
+        {loadError && (
+          <p className="font-pixel text-xs p-3" style={{ background: "#c53030", color: "#fff", border: "3px solid #8b0000" }}>
+            ⚠ {loadError}
+          </p>
+        )}
 
         {/* Scoreboard */}
         <Scoreboard />

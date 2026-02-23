@@ -61,18 +61,30 @@ export default function SettingsPage() {
 
   async function deleteKey(provider: string) {
     if (!confirm(`Remove ${provider} key?`)) return;
-    await keysApi.remove(provider);
-    keysApi.list().then(setStoredKeys);
+    try {
+      await keysApi.remove(provider);
+      keysApi.list().then(setStoredKeys);
+    } catch (e: any) {
+      alert(`Failed to remove key: ${e.message}`);
+    }
   }
 
   async function saveAiModel(provider: string, model: string) {
-    await settingsApi.update({ ai_provider: provider, ai_model: model });
-    setUserSettings((s) => s ? { ...s, ai_provider: provider, ai_model: model } : s);
+    try {
+      await settingsApi.update({ ai_provider: provider, ai_model: model });
+      setUserSettings((s) => s ? { ...s, ai_provider: provider, ai_model: model } : s);
+    } catch (e: any) {
+      alert(`Failed to update AI model: ${e.message}`);
+    }
   }
 
   async function saveProfile() {
-    await settingsApi.update(profile);
-    alert("Profile saved!");
+    try {
+      await settingsApi.update(profile);
+      alert("Profile saved!");
+    } catch (e: any) {
+      alert(`Failed to save profile: ${e.message}`);
+    }
   }
 
   return (
