@@ -1,41 +1,32 @@
 """
 auth.py — Supabase JWT verification dependency
+
+Uses supabase.auth.get_user(token) so it works with both the legacy
+HS256 shared-secret system and Supabase's newer asymmetric key system.
 """
 
-import os
-import jwt
-from jwt.exceptions import InvalidTokenError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.db import get_db
 
 bearer = HTTPBearer()
-
-JWT_SECRET    = os.getenv("SUPABASE_JWT_SECRET", "")
-JWT_ALGORITHM = "HS256"
 
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> dict:
-    """
-    Verify the Supabase JWT and return the decoded payload.
-    Audience verification is skipped — Supabase sets aud="authenticated"
-    but some client versions omit it, causing false failures.
-    """
     token = credentials.credentials
     try:
-        payload = jwt.decode(
-            token,
-            JWT_SECRET,
-            algorithms=[JWT_ALGORITHM],
-            options={"verify_aud": False},
-        )
-        user_id: str = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token: missing sub")
-        return {"user_id": user_id, "email": payload.get("email", "")}
-    except InvalidTokenError as exc:
+        db = get_db()
+        response = db.auth.get_user(token)
+        user = response.user
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        return {"user_id": str(user.id), "email": user.email or ""}
+    except HTTPException:
+        raise
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {exc}",
+            detail=f"Auth error: {exc}",
         )
