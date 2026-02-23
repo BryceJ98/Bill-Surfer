@@ -35,13 +35,13 @@ export default function SearchPage() {
   }
 
   async function addToDocket(r: any) {
-    const billId = r.bill_id ?? String(r.bill_id ?? r.number ?? r.citation ?? Math.random());
+    const billId = String(r.bill_id ?? r.number ?? r.citation ?? Math.random());
     try {
       await docketApi.add({
         bill_id:     billId,
-        bill_number: r.bill_label ?? r.citation ?? r.number ?? billId,
-        state:       r.state ?? (searchType === "state-bills" ? state : "US"),
-        title:       r.title ?? r.description ?? r.topic ?? "",
+        bill_number: String(r.bill_label ?? r.citation ?? r.number ?? billId),
+        state:       String(r.state ?? (searchType === "state-bills" ? state : "US")),
+        title:       String(r.title ?? r.description ?? r.topic ?? ""),
       });
       setAdded((s) => new Set([...s, billId]));
     } catch (e: any) {
