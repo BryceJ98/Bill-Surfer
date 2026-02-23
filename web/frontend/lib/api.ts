@@ -30,6 +30,7 @@ async function request<T>(
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail ?? `API error ${res.status}`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
