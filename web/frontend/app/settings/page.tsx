@@ -18,10 +18,9 @@ const AI_MODELS: Record<string, string[]> = {
   anthropic: ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"],
   openai:    ["gpt-4o", "gpt-4o-mini"],
   google:    [
-    "gemini/gemini-2.0-flash",
-    "gemini/gemini-2.0-flash-lite",
-    "gemini/gemini-1.5-pro",
-    "gemini/gemini-1.5-flash",
+    "gemini/gemini-3-flash-preview",
+    "gemini/gemini-2.5-flash",
+    "gemini/gemini-3.1-pro-preview",
   ],
   groq:      ["groq/llama-3.3-70b-versatile", "groq/llama-3.1-70b-versatile", "groq/llama-3.1-8b-instant"],
   mistral:   ["mistral/mistral-large-latest", "mistral/mistral-small-latest"],
