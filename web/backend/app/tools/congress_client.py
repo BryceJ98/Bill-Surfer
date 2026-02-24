@@ -689,6 +689,7 @@ def search_treaties(congress: int | None = None, limit: int = 20, offset: int = 
             t for t in treaties
             if q in (t.get("topic") or "").lower()
             or q in (t.get("treatySubject") or "").lower()
+            or any(q in c.lower() for c in (t.get("countries") or []))
         ]
 
     return {
@@ -740,11 +741,18 @@ def get_treaty_actions(congress: int, treaty_number: int) -> dict:
 def _normalise_treaty_summary(raw: dict) -> dict:
     congress = raw.get("congress")
     number   = raw.get("number", raw.get("treatyNum", ""))
+    # countriesAffected may appear in both list and detail responses
+    countries_raw = raw.get("countriesAffected") or raw.get("countries") or []
+    if isinstance(countries_raw, list):
+        countries = [c.get("name", c) if isinstance(c, dict) else str(c) for c in countries_raw]
+    else:
+        countries = []
     return {
         "congress":         congress,
         "number":           number,
         "suffix":           raw.get("suffix"),
         "topic":            raw.get("topic", raw.get("treatySubject", "")),
+        "countries":        countries,
         "transmitted_date": raw.get("transmittedDate", ""),
         "in_force_date":    raw.get("inForceDate", ""),
         "status":           raw.get("latestAction", {}).get("text", ""),

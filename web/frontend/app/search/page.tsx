@@ -7,13 +7,37 @@ import { search as searchApi, docket as docketApi, exportCsv } from "@/lib/api";
 type SearchType = "federal-bills" | "nominations" | "treaties" | "state-bills";
 
 const PAGE_SIZE = 20;
+const CURRENT_CONGRESS = 119;
 
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
+
+// Valid congress ranges based on Congress.gov data availability
+const CONGRESS_RANGE: Record<SearchType, { min: number } | null> = {
+  "federal-bills": { min: 93  },   // Congress.gov bills: 93rd (1973) onward
+  "nominations":   { min: 100 },   // nominations: 100th (1987) onward
+  "treaties":      { min: 90  },   // treaties: 90th (1967) onward
+  "state-bills":   null,           // uses year filter, not congress
+};
+
+function ordinal(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  const mod10 = n % 10;
+  if (mod10 === 1) return `${n}st`;
+  if (mod10 === 2) return `${n}nd`;
+  if (mod10 === 3) return `${n}rd`;
+  return `${n}th`;
+}
+
+function congressLabel(n: number): string {
+  const start = 1789 + (n - 1) * 2;
+  return `${ordinal(n)} (${start}–${String(start + 1).slice(-2)})`;
+}
 
 const PLACEHOLDERS: Record<SearchType, string> = {
   "federal-bills": "e.g. infrastructure, healthcare...",
   "nominations":   "e.g. secretary, ambassador, judge...",
-  "treaties":      "e.g. trade, extradition, defense... (optional)",
+  "treaties":      "e.g. Japan, trade, extradition, defense... (optional)",
   "state-bills":   "e.g. minimum wage, climate, education...",
 };
 
@@ -155,12 +179,21 @@ export default function SearchPage() {
                 {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             )}
-            {(searchType === "federal-bills" || searchType === "nominations" || searchType === "treaties") && (
-              <input className="input-arcade w-28"
-                     type="number" placeholder="Congress #"
-                     value={congress}
-                     onChange={(e) => setCongress(e.target.value ? Number(e.target.value) : "")}
-                     onKeyDown={handleKeyDown} />
+            {CONGRESS_RANGE[searchType] !== null && (
+              <select
+                className="input-arcade"
+                style={{ width: "auto", minWidth: "10rem" }}
+                value={congress}
+                onChange={(e) => setCongress(e.target.value ? Number(e.target.value) : "")}
+              >
+                <option value="">All Sessions</option>
+                {Array.from(
+                  { length: CURRENT_CONGRESS - CONGRESS_RANGE[searchType]!.min + 1 },
+                  (_, i) => CURRENT_CONGRESS - i
+                ).map((n) => (
+                  <option key={n} value={n}>{congressLabel(n)}</option>
+                ))}
+              </select>
             )}
           </div>
 

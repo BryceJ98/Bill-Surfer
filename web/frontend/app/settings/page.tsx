@@ -9,7 +9,7 @@ const PROVIDERS = [
   { id: "congress",  label: "CONGRESS",   url: "https://api.congress.gov/sign-up/",  icon: "🏛️", desc: "Federal bills, nominations, treaties" },
   { id: "anthropic", label: "ANTHROPIC",  url: "https://console.anthropic.com/",     icon: "🤖", desc: "Claude models" },
   { id: "openai",    label: "OPENAI",     url: "https://platform.openai.com/",       icon: "🤖", desc: "GPT models" },
-  { id: "google",    label: "GOOGLE",     url: "https://makersuite.google.com/",     icon: "🤖", desc: "Gemini models" },
+  { id: "google",    label: "GOOGLE",     url: "https://aistudio.google.com/apikey", icon: "🤖", desc: "Gemini models" },
   { id: "groq",      label: "GROQ",       url: "https://console.groq.com/",          icon: "🤖", desc: "Fast open models" },
   { id: "mistral",   label: "MISTRAL",    url: "https://console.mistral.ai/",        icon: "🤖", desc: "Mistral models" },
 ];
@@ -17,8 +17,13 @@ const PROVIDERS = [
 const AI_MODELS: Record<string, string[]> = {
   anthropic: ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"],
   openai:    ["gpt-4o", "gpt-4o-mini"],
-  google:    ["gemini/gemini-2.0-flash", "gemini/gemini-1.5-pro"],
-  groq:      ["groq/llama-3.1-70b-versatile", "groq/llama-3.1-8b-instant"],
+  google:    [
+    "gemini/gemini-2.0-flash",
+    "gemini/gemini-2.0-flash-lite",
+    "gemini/gemini-1.5-pro",
+    "gemini/gemini-1.5-flash",
+  ],
+  groq:      ["groq/llama-3.3-70b-versatile", "groq/llama-3.1-70b-versatile", "groq/llama-3.1-8b-instant"],
   mistral:   ["mistral/mistral-large-latest", "mistral/mistral-small-latest"],
 };
 
