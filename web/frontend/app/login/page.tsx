@@ -91,6 +91,8 @@ export default function LoginPage() {
   const [typing,       setTyping]       = useState(true);
 
   const [email,         setEmail]         = useState("");
+  const [password,      setPassword]      = useState("");
+  const [authMode,      setAuthMode]      = useState<"magic" | "password">("magic");
   const [username,      setUsername]      = useState("");
   const [legiscanKey,   setLegiscanKey]   = useState("");
   const [congressKey,   setCongressKey]   = useState("");
@@ -136,6 +138,20 @@ export default function LoginPage() {
     if (err) { setError(err.message); return; }
     setStep("check_email");
     setLineIdx(0); setTyping(true);
+  }
+
+  async function handlePasswordSubmit() {
+    setError(""); setLoading(true);
+    // Try sign-in first; if no account exists, sign up
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+    if (!signInErr) { setLoading(false); return; } // onAuthStateChange handles redirect
+    if (signInErr.message.toLowerCase().includes("invalid") || signInErr.message.toLowerCase().includes("credentials")) {
+      const { error: signUpErr } = await supabase.auth.signUp({ email, password });
+      if (signUpErr) { setError(signUpErr.message); }
+    } else {
+      setError(signInErr.message);
+    }
+    setLoading(false);
   }
 
   async function handleUsername() {
@@ -255,11 +271,37 @@ export default function LoginPage() {
               <input className="input-arcade"
                      type="email" placeholder="you@university.edu"
                      value={email} onChange={(e) => setEmail(e.target.value)}
-                     onKeyDown={(e) => e.key === "Enter" && handleEmailSubmit()} />
-              <button className="btn-arcade w-full font-pixel text-xs"
-                      onClick={handleEmailSubmit} disabled={loading || !email}>
-                {loading ? "SENDING..." : "▶ SEND MAGIC LINK"}
+                     onKeyDown={(e) => e.key === "Enter" && (authMode === "magic" ? handleEmailSubmit() : handlePasswordSubmit())} />
+
+              {authMode === "password" && (
+                <>
+                  <label className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>PASSWORD</label>
+                  <input className="input-arcade"
+                         type="password" placeholder="Your password..."
+                         value={password} onChange={(e) => setPassword(e.target.value)}
+                         onKeyDown={(e) => e.key === "Enter" && email && password && handlePasswordSubmit()} />
+                </>
+              )}
+
+              {authMode === "magic" ? (
+                <button className="btn-arcade w-full font-pixel text-xs"
+                        onClick={handleEmailSubmit} disabled={loading || !email}>
+                  {loading ? "SENDING..." : "▶ SEND MAGIC LINK"}
+                </button>
+              ) : (
+                <button className="btn-arcade w-full font-pixel text-xs"
+                        onClick={handlePasswordSubmit} disabled={loading || !email || !password}>
+                  {loading ? "SIGNING IN..." : "▶ SIGN IN / CREATE ACCOUNT"}
+                </button>
+              )}
+
+              <button
+                onClick={() => { setAuthMode(m => m === "magic" ? "password" : "magic"); setError(""); }}
+                className="font-pixel text-xs text-center"
+                style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}>
+                {authMode === "magic" ? "USE PASSWORD INSTEAD ▶" : "USE MAGIC LINK INSTEAD ▶"}
               </button>
+
               {error && <p className="font-pixel text-xs" style={{ color: "#e53e3e" }}>{error}</p>}
             </div>
           )}
