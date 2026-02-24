@@ -174,9 +174,20 @@ export default function LoginPage() {
   // ── Handlers ──────────────────────────────────────────────────────────
   async function handleRegister() {
     setError(""); setLoading(true);
-    const { error: err } = await supabase.auth.signUp({ email, password });
+    const { data, error: err } = await supabase.auth.signUp({ email, password });
     if (err) { setError(err.message); setLoading(false); return; }
-    // Save display name immediately (best-effort)
+
+    // Wait for a valid session before making any authenticated API calls.
+    // signUp with email confirmation disabled returns a session immediately,
+    // but the client may not have stored it yet — poll until it's available.
+    let attempts = 0;
+    while (attempts < 10) {
+      const { data: sd } = await supabase.auth.getSession();
+      if (sd.session?.access_token) break;
+      await new Promise((r) => setTimeout(r, 300));
+      attempts++;
+    }
+
     if (username.trim()) {
       try { await settingsApi.update({ display_name: username.trim() }); } catch {}
     }

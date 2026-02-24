@@ -10,7 +10,9 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 async function getToken(): Promise<string> {
   const supabase = createClient();
   const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? "";
+  const token = data.session?.access_token ?? "";
+  if (!token) throw new Error("Not authenticated. Please sign in again.");
+  return token;
 }
 
 async function request<T>(
