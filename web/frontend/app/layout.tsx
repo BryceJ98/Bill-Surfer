@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeProvider } from "@/lib/ThemeContext";
+import SkiBackground from "@/components/SkiBackground";
 
 export const metadata: Metadata = {
   title: "Bill-Surfer",
@@ -18,7 +20,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="scanlines min-h-screen">
-        {children}
+        <ThemeProvider>
+          <SkiBackground />
+          <div className="ski-content-layer min-h-screen">
+            {children}
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );
