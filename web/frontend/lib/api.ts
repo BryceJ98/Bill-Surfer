@@ -74,6 +74,10 @@ export const search = {
     request<any>(`/search/federal/treaties${congress ? `?congress=${congress}` : ""}`),
   stateBills:      (q: string, state: string, year?: number) =>
     request<any>(`/search/state/bills?q=${encodeURIComponent(q)}&state=${state}${year ? `&year=${year}` : ""}`),
+  federalBillFull: (congress: number, bill_type: string, bill_number: number) =>
+    request<any>(`/search/federal/bill/full?congress=${congress}&bill_type=${encodeURIComponent(bill_type)}&bill_number=${bill_number}`),
+  stateBillDetail: (bill_id: number) =>
+    request<any>(`/search/state/bill?bill_id=${bill_id}`),
 };
 
 // ── Reports ───────────────────────────────────────────────────────────────

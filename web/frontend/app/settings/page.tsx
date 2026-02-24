@@ -17,7 +17,7 @@ const PROVIDERS = [
 const AI_MODELS: Record<string, string[]> = {
   anthropic: ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"],
   openai:    ["gpt-4o", "gpt-4o-mini"],
-  google:    ["gemini/gemini-1.5-pro", "gemini/gemini-1.5-flash"],
+  google:    ["gemini/gemini-2.0-flash", "gemini/gemini-1.5-pro"],
   groq:      ["groq/llama-3.1-70b-versatile", "groq/llama-3.1-8b-instant"],
   mistral:   ["mistral/mistral-large-latest", "mistral/mistral-small-latest"],
 };
@@ -28,7 +28,7 @@ export default function SettingsPage() {
   const [inputKeys, setInputKeys]     = useState<Record<string, string>>({});
   const [saving, setSaving]           = useState<Record<string, boolean>>({});
   const [saved, setSaved]             = useState<Record<string, boolean>>({});
-  const [profile, setProfile]         = useState({ display_name: "", institution: "" });
+  const [profile, setProfile]         = useState({ display_name: "", institution: "", research_areas: "" });
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileError, setProfileError] = useState("");
 
@@ -36,7 +36,11 @@ export default function SettingsPage() {
     keysApi.list().then(setStoredKeys).catch(() => {});
     settingsApi.get().then((s) => {
       setUserSettings(s);
-      setProfile({ display_name: s.display_name ?? "", institution: s.institution ?? "" });
+      setProfile({
+        display_name:   s.display_name ?? "",
+        institution:    s.institution ?? "",
+        research_areas: (s.research_areas ?? []).join(", "),
+      });
     }).catch(() => {});
   }, []);
 
@@ -84,7 +88,9 @@ export default function SettingsPage() {
     setProfileError("");
     setProfileSaved(false);
     try {
-      await settingsApi.update(profile);
+      const areas = profile.research_areas
+        .split(",").map((s) => s.trim()).filter(Boolean);
+      await settingsApi.update({ ...profile, research_areas: areas });
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);
     } catch (e: any) {
@@ -113,6 +119,15 @@ export default function SettingsPage() {
               <input className="input-arcade" value={profile.institution}
                      onChange={(e) => setProfile({ ...profile, institution: e.target.value })} placeholder="University of ..." />
             </div>
+          </div>
+          <div>
+            <label className="font-pixel block mb-1" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }}>RESEARCH_AREAS (comma-separated)</label>
+            <input className="input-arcade w-full" value={profile.research_areas}
+                   onChange={(e) => setProfile({ ...profile, research_areas: e.target.value })}
+                   placeholder="healthcare, climate, education, housing..." />
+            <p className="font-pixel mt-1" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>
+              Used by Bodhi AI to personalize responses and reports.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <button className="btn-arcade font-pixel text-xs" onClick={saveProfile}>▶ SAVE PROFILE</button>

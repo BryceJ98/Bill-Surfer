@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
-import { docket as docketApi, type DocketItem } from "@/lib/api";
+import { docket as docketApi, exportCsv, type DocketItem } from "@/lib/api";
 
 const STANCES  = ["support","oppose","neutral","watching"] as const;
 const PRIORITIES = ["high","medium","low"] as const;
@@ -15,11 +17,13 @@ const PRIORITY_COLOR: Record<string, string> = {
 };
 
 export default function DocketPage() {
-  const [items,     setItems]     = useState<DocketItem[]>([]);
-  const [editing,   setEditing]   = useState<string | null>(null);
-  const [editData,  setEditData]  = useState<Partial<DocketItem>>({});
-  const [filter,    setFilter]    = useState<string>("all");
-  const [loadError, setLoadError] = useState("");
+  const router = useRouter();
+  const [items,       setItems]       = useState<DocketItem[]>([]);
+  const [editing,     setEditing]     = useState<string | null>(null);
+  const [editData,    setEditData]    = useState<Partial<DocketItem>>({});
+  const [filter,      setFilter]      = useState<string>("all");
+  const [loadError,   setLoadError]   = useState("");
+  const [csvExporting, setCsvExporting] = useState(false);
 
   function load() {
     docketApi.list()
@@ -43,6 +47,23 @@ export default function DocketPage() {
     } catch (e: any) {
       alert(`Failed to save: ${e.message}`);
     }
+  }
+
+  async function exportDocketCsv() {
+    setCsvExporting(true);
+    try { await exportCsv({ export_type: "docket" }); }
+    catch (e: any) { alert(`Export failed: ${e.message}`); }
+    setCsvExporting(false);
+  }
+
+  function goToReport(item: DocketItem) {
+    const p = new URLSearchParams({
+      bill_id:     item.bill_id,
+      bill_number: item.bill_number ?? "",
+      state:       item.state,
+      title:       item.title ?? item.bill_number ?? item.bill_id,
+    });
+    router.push(`/reports?${p.toString()}`);
   }
 
   async function remove(id: string) {
@@ -70,6 +91,12 @@ export default function DocketPage() {
           <h1 className="font-pixel text-sm" style={{ color: "var(--accent)" }}>
             📋 MY DOCKET <span className="text-xs">({items.length} BILLS)</span>
           </h1>
+
+          <button className="btn-arcade-outline font-pixel text-xs px-3 py-1"
+                  onClick={exportDocketCsv} disabled={csvExporting || items.length === 0}
+                  style={{ fontSize: "0.6rem" }}>
+            {csvExporting ? "EXPORTING..." : "↓ CSV EXPORT"}
+          </button>
 
           {/* Filter */}
           <div className="flex gap-1 flex-wrap">
@@ -187,7 +214,12 @@ export default function DocketPage() {
                           {item.notes && <p className="font-mono text-xs mt-1" style={{ color: "var(--text-muted)" }}>{item.notes}</p>}
                         </div>
 
-                        <div className="flex gap-2 flex-shrink-0">
+                        <div className="flex gap-2 flex-shrink-0 flex-wrap">
+                          <button className="btn-arcade font-pixel text-xs px-3 py-1"
+                                  onClick={() => goToReport(item)}
+                                  style={{ fontSize: "0.6rem" }}>
+                            📊 GEN REPORT
+                          </button>
                           <button className="btn-arcade-outline font-pixel text-xs px-3 py-1" onClick={() => startEdit(item)}
                                   style={{ fontSize: "0.6rem" }}>
                             EDIT

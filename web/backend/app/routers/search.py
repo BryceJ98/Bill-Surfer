@@ -114,6 +114,28 @@ def get_federal_bill(
     return result
 
 
+@router.get("/federal/bill/full", summary="Get federal bill with CRS summary and recent actions")
+def get_federal_bill_full(
+    congress:    int = Query(...),
+    bill_type:   str = Query(...),
+    bill_number: int = Query(...),
+    user         = Depends(get_current_user),
+):
+    api_key  = _require_key(user["user_id"], "congress")
+    detail   = cc.get_bill(congress, bill_type, bill_number, api_key=api_key)
+    if "error" in detail:
+        raise HTTPException(status_code=502, detail=detail["error"])
+    summaries = cc.get_bill_summaries(congress, bill_type, bill_number, api_key=api_key)
+    actions   = cc.get_bill_actions(congress, bill_type, bill_number, limit=10, api_key=api_key)
+    log_api_usage(user["user_id"], "congress", calls=3)
+    return {
+        **detail,
+        "summary_text":   summaries.get("latest", ""),
+        "summary_date":   summaries.get("latest_date", ""),
+        "recent_actions": actions.get("actions", []),
+    }
+
+
 @router.get("/state/bill", summary="Get state bill detail (LegiScan)")
 def get_state_bill(
     bill_id: int = Query(...),

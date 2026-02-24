@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
 import { search as searchApi, docket as docketApi, exportCsv } from "@/lib/api";
@@ -88,6 +89,16 @@ export default function SearchPage() {
     return r.bill_label ?? r.bill_number ?? r.citation ?? r.number ?? "—";
   }
 
+  function getDetailHref(r: any): string | null {
+    if (searchType === "federal-bills" && r.congress && r.bill_type && r.bill_number) {
+      return `/bill/US/${r.congress}-${r.bill_type}-${r.bill_number}`;
+    }
+    if (searchType === "state-bills" && r.bill_id) {
+      return `/bill/${state}/${r.bill_id}`;
+    }
+    return null;
+  }
+
   const placeholder = searchType === "state-bills"
     ? "e.g. minimum wage, climate, education..."
     : searchType === "treaties" ? "(no query needed for treaties)" : "e.g. infrastructure, healthcare...";
@@ -166,12 +177,15 @@ export default function SearchPage() {
               {results.length} RESULTS
             </p>
             {results.map((r, i) => {
-              const key     = r.bill_id ?? r.citation ?? r.number ?? i;
-              const isAdded = added.has(String(key));
-              const extUrl  = getBillUrl(r);
-              const label   = getBillLabel(r);
+              const key        = r.bill_id ?? r.citation ?? r.number ?? i;
+              const isAdded    = added.has(String(key));
+              const extUrl     = getBillUrl(r);
+              const label      = getBillLabel(r);
+              const detailHref = getDetailHref(r);
               return (
-                <div key={i} className="card p-4 flex items-start gap-3">
+                <div key={i} className="card p-4 flex items-start gap-3"
+                     style={{ cursor: detailHref ? "pointer" : "default" }}
+                     onClick={() => detailHref && window.location.assign(detailHref)}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="font-pixel text-xs px-2 py-0"
@@ -182,6 +196,13 @@ export default function SearchPage() {
                       <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.6rem" }}>
                         {label}
                       </span>
+                      {/* Detail page link */}
+                      {detailHref && (
+                        <span className="font-pixel text-xs"
+                              style={{ color: "var(--accent)", fontSize: "0.55rem" }}>
+                          ▶ DETAILS
+                        </span>
+                      )}
                       {/* BUG-005: link to external source */}
                       {extUrl && (
                         <a href={extUrl} target="_blank" rel="noreferrer"
@@ -200,7 +221,7 @@ export default function SearchPage() {
                     )}
                   </div>
 
-                  <button onClick={() => addToDocket(r)}
+                  <button onClick={(e) => { e.stopPropagation(); addToDocket(r); }}
                           disabled={isAdded}
                           className="font-pixel text-xs px-3 py-2 flex-shrink-0"
                           style={{

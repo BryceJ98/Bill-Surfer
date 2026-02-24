@@ -74,7 +74,7 @@ const AI_OPTIONS = [
   { provider: "anthropic", model: "claude-opus-4-6",            label: "Claude Opus 4.6   (Anthropic)" },
   { provider: "openai",    model: "gpt-4o",                     label: "GPT-4o            (OpenAI)" },
   { provider: "openai",    model: "gpt-4o-mini",                label: "GPT-4o Mini       (OpenAI)" },
-  { provider: "google",    model: "gemini/gemini-1.5-pro",      label: "Gemini 1.5 Pro    (Google)" },
+  { provider: "google",    model: "gemini/gemini-2.0-flash",    label: "Gemini 2.0 Flash  (Google)" },
   { provider: "groq",      model: "groq/llama-3.1-70b-versatile", label: "Llama 3.1 70B  (Groq)" },
 ];
 
@@ -92,7 +92,7 @@ export default function LoginPage() {
 
   const [email,         setEmail]         = useState("");
   const [password,      setPassword]      = useState("");
-  const [authMode,      setAuthMode]      = useState<"magic" | "password">("magic");
+  const [authMode,      setAuthMode]      = useState<"magic" | "password">("password");
   const [username,      setUsername]      = useState("");
   const [legiscanKey,   setLegiscanKey]   = useState("");
   const [congressKey,   setCongressKey]   = useState("");
@@ -142,16 +142,23 @@ export default function LoginPage() {
 
   async function handlePasswordSubmit() {
     setError(""); setLoading(true);
-    // Try sign-in first; if no account exists, sign up
     const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
-    if (!signInErr) { setLoading(false); return; } // onAuthStateChange handles redirect
-    if (signInErr.message.toLowerCase().includes("invalid") || signInErr.message.toLowerCase().includes("credentials")) {
-      const { error: signUpErr } = await supabase.auth.signUp({ email, password });
-      if (signUpErr) { setError(signUpErr.message); }
-    } else {
-      setError(signInErr.message);
-    }
     setLoading(false);
+    if (!signInErr) return; // onAuthStateChange handles redirect
+    // Sign-in failed — guide user instead of auto-signup (which triggers emails)
+    const isNoPassword = signInErr.message.toLowerCase().includes("invalid") ||
+                         signInErr.message.toLowerCase().includes("credentials");
+    setError(isNoPassword
+      ? "Sign-in failed. New user? Set a password in the Supabase dashboard → Auth → Users, or use magic link above."
+      : signInErr.message);
+  }
+
+  async function handlePasswordCreate() {
+    setError(""); setLoading(true);
+    const { error } = await supabase.auth.signUp({ email, password });
+    setLoading(false);
+    if (error) { setError(error.message); }
+    // onAuthStateChange handles redirect if confirmed
   }
 
   async function handleUsername() {
@@ -289,10 +296,16 @@ export default function LoginPage() {
                   {loading ? "SENDING..." : "▶ SEND MAGIC LINK"}
                 </button>
               ) : (
-                <button className="btn-arcade w-full font-pixel text-xs"
-                        onClick={handlePasswordSubmit} disabled={loading || !email || !password}>
-                  {loading ? "SIGNING IN..." : "▶ SIGN IN / CREATE ACCOUNT"}
-                </button>
+                <div className="flex gap-2">
+                  <button className="btn-arcade flex-1 font-pixel text-xs"
+                          onClick={handlePasswordSubmit} disabled={loading || !email || !password}>
+                    {loading ? "..." : "▶ SIGN IN"}
+                  </button>
+                  <button className="btn-arcade-outline flex-1 font-pixel text-xs"
+                          onClick={handlePasswordCreate} disabled={loading || !email || !password}>
+                    CREATE ACCOUNT
+                  </button>
+                </div>
               )}
 
               <button

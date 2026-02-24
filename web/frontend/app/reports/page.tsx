@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
 import { reports as reportsApi, type Report, type ReportRequest } from "@/lib/api";
@@ -19,6 +20,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function ReportsPage() {
+  const params = useSearchParams();
   const [library,    setLibrary]    = useState<Report[]>([]);
   const [showForm,   setShowForm]   = useState(false);
   const [loading,    setLoading]    = useState(false);
@@ -26,8 +28,16 @@ export default function ReportsPage() {
   const [loadError,  setLoadError]  = useState("");
   const [expanded,   setExpanded]   = useState<string | null>(null); // BUG-008: expanded row
   const [form, setForm] = useState<ReportRequest & { report_type: string }>({
-    bill_id: "", bill_number: "", state: "", title: "", report_type: "policy_impact",
+    bill_id:     params.get("bill_id")     ?? "",
+    bill_number: params.get("bill_number") ?? "",
+    state:       params.get("state")       ?? "",
+    title:       params.get("title")       ?? "",
+    report_type: "policy_impact",
   });
+
+  // Auto-open form if pre-filled from docket
+  const [_formInit] = useState(() => !!(params.get("bill_id")));
+  useEffect(() => { if (_formInit) setShowForm(true); }, []);
 
   function loadLibrary() {
     reportsApi.list()
@@ -60,6 +70,19 @@ export default function ReportsPage() {
       alert(e.message);
     }
     setLoading(false);
+  }
+
+  async function retryReport(r: Report) {
+    try {
+      await reportsApi.create({
+        bill_id:     r.bill_id,
+        bill_number: r.bill_number,
+        state:       r.state,
+        title:       r.title,
+        report_type: r.report_type,
+      });
+      loadLibrary();
+    } catch (e: any) { alert(e.message); }
   }
 
   async function deleteReport(id: string) {
@@ -199,6 +222,14 @@ export default function ReportsPage() {
                              target="_blank" rel="noreferrer">
                             ↓ PDF
                           </a>
+                        )}
+
+                        {r.status === "error" && (
+                          <button onClick={() => retryReport(r)}
+                                  className="btn-arcade-outline font-pixel"
+                                  style={{ fontSize: "0.6rem", padding: "4px 8px", borderColor: "#856404", color: "#856404" }}>
+                            ⟳ RETRY
+                          </button>
                         )}
 
                         <button onClick={() => deleteReport(r.id)}
