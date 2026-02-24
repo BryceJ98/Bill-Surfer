@@ -31,10 +31,11 @@ def search_federal_bills(
     q:        str  = Query(..., description="Search keywords"),
     congress: int  = Query(None, description="Congress number (default: current)"),
     limit:    int  = Query(20,   ge=1, le=250),
+    offset:   int  = Query(0,    ge=0),
     user      = Depends(get_current_user),
 ):
     api_key = _require_key(user["user_id"], "congress")
-    result = cc.search_bills(q, congress=congress, limit=limit, api_key=api_key)
+    result = cc.search_bills(q, congress=congress, limit=limit, offset=offset, api_key=api_key)
     if "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
     log_api_usage(user["user_id"], "congress")
@@ -49,10 +50,11 @@ def search_nominations(
     q:        str | None = Query(None),
     congress: int        = Query(None),
     limit:    int        = Query(20, ge=1, le=250),
+    offset:   int        = Query(0,  ge=0),
     user      = Depends(get_current_user),
 ):
     api_key = _require_key(user["user_id"], "congress")
-    result = cc.search_nominations(congress=congress, query=q, limit=limit, api_key=api_key)
+    result = cc.search_nominations(congress=congress, query=q, limit=limit, offset=offset, api_key=api_key)
     if "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
     log_api_usage(user["user_id"], "congress")
@@ -64,12 +66,14 @@ def search_nominations(
 # ---------------------------------------------------------------------------
 @router.get("/federal/treaties", summary="Search Senate treaties")
 def search_treaties(
-    congress: int = Query(None),
-    limit:    int = Query(20, ge=1, le=250),
+    congress: int        = Query(None),
+    q:        str | None = Query(None),
+    limit:    int        = Query(20, ge=1, le=250),
+    offset:   int        = Query(0,  ge=0),
     user      = Depends(get_current_user),
 ):
     api_key = _require_key(user["user_id"], "congress")
-    result = cc.search_treaties(congress=congress, limit=limit, api_key=api_key)
+    result = cc.search_treaties(congress=congress, limit=limit, offset=offset, query=q, api_key=api_key)
     if "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
     log_api_usage(user["user_id"], "congress")
@@ -81,19 +85,22 @@ def search_treaties(
 # ---------------------------------------------------------------------------
 @router.get("/state/bills", summary="Search state bills (LegiScan)")
 def search_state_bills(
-    q:     str       = Query(...),
-    state: str       = Query(..., min_length=2, max_length=2),
-    year:  int       = Query(None),
-    limit: int       = Query(20, ge=1, le=50),
-    user   = Depends(get_current_user),
+    q:      str  = Query(...),
+    state:  str  = Query(..., min_length=2, max_length=2),
+    year:   int  = Query(None),
+    limit:  int  = Query(20, ge=1, le=50),
+    offset: int  = Query(0,  ge=0),
+    user    = Depends(get_current_user),
 ):
     api_key = _require_key(user["user_id"], "legiscan")
     result = lc.search_bills(q, state=state.upper(), year=year or 2, api_key=api_key)
     if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
     log_api_usage(user["user_id"], "legiscan")
-    bills = (result.get("bills") or result) if isinstance(result, dict) else result
-    return {"bills": bills[:limit], "query": q, "state": state.upper()}
+    bills_all = (result.get("bills") or result) if isinstance(result, dict) else result
+    if not isinstance(bills_all, list):
+        bills_all = []
+    return {"bills": bills_all[offset:offset + limit], "total": len(bills_all), "query": q, "state": state.upper()}
 
 
 # ---------------------------------------------------------------------------

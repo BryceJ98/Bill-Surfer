@@ -353,22 +353,14 @@ def search_bills(
         path = f"/bill/{congress}"
 
     params: dict = {"offset": offset, "limit": limit}
+    if query:
+        params["query"] = query  # Congress.gov server-side keyword search
+
     data = _request(path, params, use_cache=False, api_key=api_key)
     if "error" in data:
         return data
 
     bills_raw = data.get("bills", [])
-
-    if query:
-        q_lower = query.lower()
-        filtered = []
-        for b in bills_raw:
-            title    = (b.get("title") or "").lower()
-            number   = (b.get("number") or "").lower()
-            subjects = (b.get("policyArea", {}).get("name") or "").lower()
-            if q_lower in title or q_lower in number or q_lower in subjects:
-                filtered.append(b)
-        bills_raw = filtered
 
     return {
         "bills":    [_normalise_bill_summary(b) for b in bills_raw],
@@ -675,12 +667,12 @@ def _normalise_amendment(raw: dict) -> dict:
 # Treaties
 # ---------------------------------------------------------------------------
 
-def search_treaties(congress: int | None = None, limit: int = 20, offset: int = 0, api_key: str | None = None) -> dict:
+def search_treaties(congress: int | None = None, limit: int = 20, offset: int = 0, query: str | None = None, api_key: str | None = None) -> dict:
     """
-    List treaties received by a given Congress.
+    List treaties received by a given Congress with optional keyword filter.
 
     Returns:
-        {"treaties": [...], "count": int, "congress": int}
+        {"treaties": [...], "total": int, "congress": int}
     """
     congress = congress or current_congress()
     path = f"/treaty/{congress}"
@@ -689,10 +681,22 @@ def search_treaties(congress: int | None = None, limit: int = 20, offset: int = 
         return data
 
     treaties = data.get("treaties", [])
+    total = data.get("pagination", {}).get("count", len(treaties))
+
+    if query:
+        q = query.lower()
+        treaties = [
+            t for t in treaties
+            if q in (t.get("topic") or "").lower()
+            or q in (t.get("treatySubject") or "").lower()
+        ]
+
     return {
         "treaties": [_normalise_treaty_summary(t) for t in treaties],
-        "count":    data.get("pagination", {}).get("count", len(treaties)),
+        "total":    total,
+        "count":    total,
         "congress": congress,
+        "query":    query,
     }
 
 

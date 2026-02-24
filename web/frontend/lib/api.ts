@@ -67,15 +67,37 @@ export const docket = {
 };
 
 // ── Search ────────────────────────────────────────────────────────────────
+function _qs(parts: (string | false | undefined)[]): string {
+  const s = parts.filter(Boolean).join("&");
+  return s ? `?${s}` : "";
+}
+
 export const search = {
-  federalBills:    (q: string, congress?: number) =>
-    request<any>(`/search/federal/bills?q=${encodeURIComponent(q)}${congress ? `&congress=${congress}` : ""}`),
-  nominations:     (q?: string, congress?: number) =>
-    request<any>(`/search/federal/nominations${q ? `?q=${encodeURIComponent(q)}` : ""}${congress ? `${q ? "&" : "?"}congress=${congress}` : ""}`),
-  treaties:        (congress?: number) =>
-    request<any>(`/search/federal/treaties${congress ? `?congress=${congress}` : ""}`),
-  stateBills:      (q: string, state: string, year?: number) =>
-    request<any>(`/search/state/bills?q=${encodeURIComponent(q)}&state=${state}${year ? `&year=${year}` : ""}`),
+  federalBills: (q: string, congress?: number, offset?: number) =>
+    request<any>(`/search/federal/bills${_qs([
+      `q=${encodeURIComponent(q)}`,
+      congress  && `congress=${congress}`,
+      offset    && `offset=${offset}`,
+    ])}`),
+  nominations: (q?: string, congress?: number, offset?: number) =>
+    request<any>(`/search/federal/nominations${_qs([
+      q        && `q=${encodeURIComponent(q)}`,
+      congress && `congress=${congress}`,
+      offset   && `offset=${offset}`,
+    ])}`),
+  treaties: (congress?: number, q?: string, offset?: number) =>
+    request<any>(`/search/federal/treaties${_qs([
+      congress && `congress=${congress}`,
+      q        && `q=${encodeURIComponent(q)}`,
+      offset   && `offset=${offset}`,
+    ])}`),
+  stateBills: (q: string, state: string, year?: number, offset?: number) =>
+    request<any>(`/search/state/bills${_qs([
+      `q=${encodeURIComponent(q)}`,
+      `state=${state}`,
+      year   && `year=${year}`,
+      offset && `offset=${offset}`,
+    ])}`),
   federalBillFull: (congress: number, bill_type: string, bill_number: number) =>
     request<any>(`/search/federal/bill/full?congress=${congress}&bill_type=${encodeURIComponent(bill_type)}&bill_number=${bill_number}`),
   stateBillDetail: (bill_id: number) =>

@@ -1,51 +1,65 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
 import { search as searchApi, docket as docketApi, exportCsv } from "@/lib/api";
 
 type SearchType = "federal-bills" | "nominations" | "treaties" | "state-bills";
 
+const PAGE_SIZE = 20;
+
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
+const PLACEHOLDERS: Record<SearchType, string> = {
+  "federal-bills": "e.g. infrastructure, healthcare...",
+  "nominations":   "e.g. secretary, ambassador, judge...",
+  "treaties":      "e.g. trade, extradition, defense... (optional)",
+  "state-bills":   "e.g. minimum wage, climate, education...",
+};
+
 export default function SearchPage() {
-  const [searchType, setSearchType] = useState<SearchType>("federal-bills");
-  const [query,      setQuery]      = useState("");
-  const [state,      setState]      = useState("CA");
-  const [congress,   setCongress]   = useState<number | "">("");
-  const [results,    setResults]    = useState<any[]>([]);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState("");
+  const [searchType,  setSearchType]  = useState<SearchType>("federal-bills");
+  const [query,       setQuery]       = useState("");
+  const [state,       setState]       = useState("CA");
+  const [congress,    setCongress]    = useState<number | "">("");
+  const [results,     setResults]     = useState<any[]>([]);
+  const [total,       setTotal]       = useState(0);
+  const [page,        setPage]        = useState(0);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState("");
   const [exportError, setExportError] = useState("");
-  const [added,      setAdded]      = useState<Set<string>>(new Set());
+  const [added,       setAdded]       = useState<Set<string>>(new Set());
 
   function switchTab(t: SearchType) {
     setSearchType(t);
-    setResults([]);   // BUG-002: clear results on tab switch
+    setResults([]);
+    setTotal(0);
+    setPage(0);
     setError("");
     setExportError("");
   }
 
-  async function doSearch() {
+  async function doSearch(pageNum = 0) {
     setError(""); setLoading(true); setResults([]);
     try {
       let data: any;
-      const cong = congress !== "" ? Number(congress) : undefined;
-      if      (searchType === "federal-bills")  data = await searchApi.federalBills(query, cong);
-      else if (searchType === "nominations")    data = await searchApi.nominations(query || undefined, cong);
-      else if (searchType === "treaties")       data = await searchApi.treaties(cong);
-      else if (searchType === "state-bills")    data = await searchApi.stateBills(query, state);
+      const cong   = congress !== "" ? Number(congress) : undefined;
+      const offset = pageNum * PAGE_SIZE;
+      if      (searchType === "federal-bills") data = await searchApi.federalBills(query, cong, offset || undefined);
+      else if (searchType === "nominations")   data = await searchApi.nominations(query || undefined, cong, offset || undefined);
+      else if (searchType === "treaties")      data = await searchApi.treaties(cong, query || undefined, offset || undefined);
+      else if (searchType === "state-bills")   data = await searchApi.stateBills(query, state, undefined, offset || undefined);
 
       const list = data?.bills ?? data?.nominations ?? data?.treaties ?? data?.results ?? [];
       setResults(Array.isArray(list) ? list : []);
+      setTotal(data?.total ?? data?.count ?? (Array.isArray(list) ? list.length : 0));
+      setPage(pageNum);
     } catch (e: any) { setError(e.message); }
     setLoading(false);
   }
 
-  // BUG-003: Enter key triggers search from any input
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") doSearch();
+    if (e.key === "Enter") doSearch(0);
   }
 
   async function addToDocket(r: any) {
@@ -64,7 +78,6 @@ export default function SearchPage() {
     }
   }
 
-  // BUG-006: show export errors
   async function doExport() {
     setExportError("");
     try {
@@ -79,12 +92,10 @@ export default function SearchPage() {
     }
   }
 
-  // BUG-005: get external URL for a result
   function getBillUrl(r: any): string | null {
     return r.url ?? r.congress_url ?? r.legiscan_url ?? null;
   }
 
-  // BUG-004: get bill number/label robustly
   function getBillLabel(r: any): string {
     return r.bill_label ?? r.bill_number ?? r.citation ?? r.number ?? "—";
   }
@@ -99,9 +110,9 @@ export default function SearchPage() {
     return null;
   }
 
-  const placeholder = searchType === "state-bills"
-    ? "e.g. minimum wage, climate, education..."
-    : searchType === "treaties" ? "(no query needed for treaties)" : "e.g. infrastructure, healthcare...";
+  const totalPages  = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0;
+  const hasPrev     = page > 0;
+  const hasNext     = results.length === PAGE_SIZE && (page + 1) * PAGE_SIZE < total;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
@@ -110,7 +121,7 @@ export default function SearchPage() {
 
         <h1 className="font-pixel text-sm" style={{ color: "var(--accent)" }}>🔍 SEARCH</h1>
 
-        {/* Search type selector */}
+        {/* Search type tabs */}
         <div className="flex flex-wrap gap-2">
           {(["federal-bills","nominations","treaties","state-bills"] as SearchType[]).map((t) => (
             <button key={t} onClick={() => switchTab(t)}
@@ -123,7 +134,7 @@ export default function SearchPage() {
                       boxShadow:   searchType === t ? "3px 3px 0 var(--border)" : "none",
                       fontSize: "0.65rem",
                     }}>
-              {searchType === t ? "▶ " : ""}{t.toUpperCase().replace("-"," ")}
+              {searchType === t ? "▶ " : ""}{t.toUpperCase().replace(/-/g," ")}
             </button>
           ))}
         </div>
@@ -131,13 +142,13 @@ export default function SearchPage() {
         {/* Search form */}
         <div className="card p-4 flex flex-col gap-3">
           <div className="flex gap-2 flex-wrap">
-            {searchType !== "treaties" && (
-              <input className="input-arcade flex-1"
-                     placeholder={placeholder}
-                     value={query}
-                     onChange={(e) => setQuery(e.target.value)}
-                     onKeyDown={handleKeyDown} />
-            )}
+            {/* Keyword input — always shown; optional for treaties */}
+            <input className="input-arcade flex-1"
+                   placeholder={PLACEHOLDERS[searchType]}
+                   value={query}
+                   onChange={(e) => setQuery(e.target.value)}
+                   onKeyDown={handleKeyDown} />
+
             {searchType === "state-bills" && (
               <select className="input-arcade w-24"
                       value={state} onChange={(e) => setState(e.target.value)}>
@@ -155,7 +166,7 @@ export default function SearchPage() {
 
           <div className="flex gap-2">
             <button className="btn-arcade font-pixel text-xs flex-1"
-                    onClick={doSearch} disabled={loading}>
+                    onClick={() => doSearch(0)} disabled={loading}>
               {loading ? "SEARCHING..." : "▶ SEARCH"}
             </button>
             {results.length > 0 && (
@@ -166,16 +177,42 @@ export default function SearchPage() {
             )}
           </div>
 
-          {error      && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ {error}</p>}
+          {error       && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ {error}</p>}
           {exportError && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ Export failed: {exportError}</p>}
         </div>
 
         {/* Results */}
         {results.length > 0 && (
           <div className="flex flex-col gap-2">
-            <p className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>
-              {results.length} RESULTS
-            </p>
+            {/* Count + pagination */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <p className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>
+                {results.length} OF {total > 0 ? total : "?"} RESULTS
+                {totalPages > 1 && ` — PAGE ${page + 1} / ${totalPages}`}
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => doSearch(page - 1)} disabled={!hasPrev || loading}
+                        className="font-pixel text-xs px-3 py-1"
+                        style={{
+                          border: "2px solid var(--border)",
+                          color:  hasPrev ? "var(--text)" : "var(--text-muted)",
+                          opacity: hasPrev ? 1 : 0.4,
+                        }}>
+                  ◀ PREV
+                </button>
+                <button onClick={() => doSearch(page + 1)} disabled={!hasNext || loading}
+                        className="font-pixel text-xs px-3 py-1"
+                        style={{
+                          border: "2px solid var(--border)",
+                          color:  hasNext ? "var(--text)" : "var(--text-muted)",
+                          opacity: hasNext ? 1 : 0.4,
+                        }}>
+                  NEXT ▶
+                </button>
+              </div>
+            </div>
+
+            {/* Result cards */}
             {results.map((r, i) => {
               const key        = r.bill_id ?? r.citation ?? r.number ?? i;
               const isAdded    = added.has(String(key));
@@ -192,18 +229,14 @@ export default function SearchPage() {
                             style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)", fontSize: "0.6rem" }}>
                         {r.state ?? r.congress ?? "US"}
                       </span>
-                      {/* BUG-004: show bill label with correct field fallback */}
                       <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.6rem" }}>
                         {label}
                       </span>
-                      {/* Detail page link */}
                       {detailHref && (
-                        <span className="font-pixel text-xs"
-                              style={{ color: "var(--accent)", fontSize: "0.55rem" }}>
+                        <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.55rem" }}>
                           ▶ DETAILS
                         </span>
                       )}
-                      {/* BUG-005: link to external source */}
                       {extUrl && (
                         <a href={extUrl} target="_blank" rel="noreferrer"
                            className="font-pixel text-xs"
@@ -237,6 +270,25 @@ export default function SearchPage() {
                 </div>
               );
             })}
+
+            {/* Bottom pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button onClick={() => doSearch(page - 1)} disabled={!hasPrev || loading}
+                        className="btn-arcade font-pixel text-xs"
+                        style={{ opacity: hasPrev ? 1 : 0.4 }}>
+                  ◀ PREV PAGE
+                </button>
+                <span className="font-pixel text-xs" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }}>
+                  {page + 1} / {totalPages}
+                </span>
+                <button onClick={() => doSearch(page + 1)} disabled={!hasNext || loading}
+                        className="btn-arcade font-pixel text-xs"
+                        style={{ opacity: hasNext ? 1 : 0.4 }}>
+                  NEXT PAGE ▶
+                </button>
+              </div>
+            )}
           </div>
         )}
 
