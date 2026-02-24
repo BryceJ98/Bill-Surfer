@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
@@ -19,7 +19,7 @@ const STATUS_COLOR: Record<string, string> = {
   pending:    "#888",
 };
 
-export default function ReportsPage() {
+function ReportsPage() {
   const params = useSearchParams();
   const [library,    setLibrary]    = useState<Report[]>([]);
   const [showForm,   setShowForm]   = useState(false);
@@ -281,5 +281,13 @@ export default function ReportsPage() {
       </main>
       <BodhiChat />
     </div>
+  );
+}
+
+export default function ReportsPageWrapper() {
+  return (
+    <Suspense>
+      <ReportsPage />
+    </Suspense>
   );
 }
