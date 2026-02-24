@@ -23,7 +23,7 @@ class SettingsUpdate(BaseModel):
 AI_MODELS = {
     "anthropic": ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5-20251001"],
     "openai":    ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
-    "google":    ["gemini/gemini-1.5-pro", "gemini/gemini-1.5-flash"],
+    "google":    ["gemini/gemini-2.0-flash", "gemini/gemini-1.5-pro"],
     "groq":      ["groq/llama-3.1-70b-versatile", "groq/llama-3.1-8b-instant"],
     "mistral":   ["mistral/mistral-large-latest", "mistral/mistral-small-latest"],
 }
