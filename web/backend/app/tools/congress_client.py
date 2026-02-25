@@ -332,9 +332,15 @@ def search_bills(
     """
     Search federal bills by keyword.
 
+    Congress.gov API behaviour:
+      - /bill/{congress}  — lists bills from that congress, IGNORES query param
+      - /bill?query=...   — full-text search across all congresses (respects query)
+    So when a query is supplied we use the search endpoint; when browsing by
+    congress with no query we use the congress-specific endpoint.
+
     Args:
-        query:     Search keywords
-        congress:  Congress number (default: current)
+        query:     Search keywords (required for keyword search)
+        congress:  Congress number — optional filter; used as path when no query
         bill_type: Filter by type ("hr", "s", etc.) — optional
         offset:    Pagination offset
         limit:     Results per page (max 250)
@@ -342,31 +348,47 @@ def search_bills(
     Returns:
         {"bills": [...], "total": int, "offset": int, "congress": int}
     """
-    congress = congress or current_congress()
+    if query and not bill_type:
+        # ── Keyword search: use the global /bill endpoint which supports query ──
+        # The congress-specific endpoint /bill/{congress} silently ignores `query`
+        # and returns bills ordered by date, giving irrelevant results.
+        params: dict = {"query": query, "offset": offset, "limit": limit}
+        if congress:
+            # Pass congress as a filter param (supported by /bill search endpoint)
+            params["congress"] = congress
+        data = _request("/bill", params, use_cache=False, api_key=api_key)
+        if "error" in data:
+            return data
+        bills_raw = data.get("bills", [])
+        return {
+            "bills":    [_normalise_bill_summary(b) for b in bills_raw],
+            "total":    data.get("pagination", {}).get("count", len(bills_raw)),
+            "offset":   offset,
+            "congress": congress,
+            "query":    query,
+        }
 
+    # ── Browse mode: no query, list by congress/type ──────────────────────────
+    resolved_congress = congress or current_congress()
     if bill_type:
         bt = _normalise_type(bill_type)
         if not bt:
             return {"error": f"Unknown bill type: '{bill_type}'"}
-        path = f"/bill/{congress}/{bt}"
+        path = f"/bill/{resolved_congress}/{bt}"
     else:
-        path = f"/bill/{congress}"
+        path = f"/bill/{resolved_congress}"
 
-    params: dict = {"offset": offset, "limit": limit}
-    if query:
-        params["query"] = query  # Congress.gov server-side keyword search
-
+    params = {"offset": offset, "limit": limit}
     data = _request(path, params, use_cache=False, api_key=api_key)
     if "error" in data:
         return data
 
     bills_raw = data.get("bills", [])
-
     return {
         "bills":    [_normalise_bill_summary(b) for b in bills_raw],
         "total":    data.get("pagination", {}).get("count", len(bills_raw)),
         "offset":   offset,
-        "congress": congress,
+        "congress": resolved_congress,
         "query":    query,
     }
 
