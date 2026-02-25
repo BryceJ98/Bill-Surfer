@@ -4,18 +4,20 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/", "/login"];
 
+// ── Maintenance mode ─────────────────────────────────────────────────────────
+// To take the site offline: set MAINTENANCE to true, commit, push.
+// To bring it back: set MAINTENANCE to false, commit, push.
+const MAINTENANCE = false;
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function middleware(request: NextRequest) {
-  // ── Maintenance mode ───────────────────────────────────────────────────────
-  // Set MAINTENANCE_MODE=true in Vercel env vars + redeploy to take offline.
-  // Remove the variable + redeploy to bring back online.
-  if (process.env.MAINTENANCE_MODE === "true") {
+  if (MAINTENANCE) {
     const path = request.nextUrl.pathname;
     if (path !== "/maintenance") {
       return NextResponse.redirect(new URL("/maintenance", request.url));
     }
     return NextResponse.next();
   }
-  // ──────────────────────────────────────────────────────────────────────────
 
   let response = NextResponse.next({ request });
 
