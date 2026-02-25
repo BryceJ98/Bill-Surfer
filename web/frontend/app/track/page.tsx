@@ -8,7 +8,7 @@ import {
 } from "@/lib/api";
 
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
-const AUTO_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const STORAGE_KEY = "bill_surfer_trackers";
 
 interface SavedTracker {
@@ -99,20 +99,27 @@ export default function TrackPage() {
   }, []);
 
   useEffect(() => {
-    // Auto-refresh any tracker last checked > 30 min ago
+    // Auto-refresh any tracker not checked today
     trackers.forEach(t => {
-      const stale = Date.now() - new Date(t.last_checked).getTime() > AUTO_REFRESH_MS;
+      const stale = Date.now() - new Date(t.last_checked).getTime() > ONE_DAY_MS;
       if (stale) refreshTracker(t, true);
     });
 
-    autoRefreshRef.current = setInterval(() => {
-      setTrackers(prev => {
-        prev.forEach(t => refreshTracker(t, true));
-        return prev;
-      });
-    }, AUTO_REFRESH_MS);
+    // Schedule first fire at next midnight, then every 24 h after that
+    const now       = new Date();
+    const midnight  = new Date(now);
+    midnight.setHours(24, 0, 0, 0);          // next midnight
+    const msUntilMidnight = midnight.getTime() - now.getTime();
+
+    const timeoutId = setTimeout(() => {
+      setTrackers(prev => { prev.forEach(t => refreshTracker(t, true)); return prev; });
+      autoRefreshRef.current = setInterval(() => {
+        setTrackers(prev => { prev.forEach(t => refreshTracker(t, true)); return prev; });
+      }, ONE_DAY_MS);
+    }, msUntilMidnight);
 
     return () => {
+      clearTimeout(timeoutId);
       if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
     };
   }, []); // run once on mount
@@ -198,7 +205,7 @@ export default function TrackPage() {
                 ⚡ LIVE TRACKERS ({trackers.length})
               </p>
               <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>
-                Auto-refreshes every 30 min
+                Auto-refreshes daily at midnight
               </p>
             </div>
 
@@ -416,7 +423,7 @@ export default function TrackPage() {
                   ⚡ SAVE AS LIVE TRACKER
                 </p>
                 <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>
-                  Auto-checks every 30 min for new legislation. NEW bills are highlighted.
+                  Auto-checks daily at midnight for new legislation. NEW bills are highlighted.
                 </p>
               </div>
               <button className="btn-arcade font-pixel text-xs"
