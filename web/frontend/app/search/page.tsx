@@ -2,7 +2,7 @@
 import { useState } from "react";
 import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
-import { search as searchApi, docket as docketApi, exportCsv } from "@/lib/api";
+import { search as searchApi, docket as docketApi, exportCsv, explain as explainApi, type ExplainResult } from "@/lib/api";
 
 type SearchType = "federal-bills" | "nominations" | "treaties" | "state-bills" | "agent";
 
@@ -60,6 +60,9 @@ export default function SearchPage() {
   const [agentLoading,  setAgentLoading]  = useState(false);
   const [agentResult,   setAgentResult]   = useState<{ bills: any[]; explanation: string; searches: string[] } | null>(null);
   const [agentError,    setAgentError]    = useState("");
+  // Plain-English explain state
+  const [explaining,    setExplaining]    = useState<Set<string>>(new Set());
+  const [explanations,  setExplanations]  = useState<Map<string, ExplainResult>>(new Map());
 
   function switchTab(t: SearchType) {
     setSearchType(t);
@@ -118,6 +121,27 @@ export default function SearchPage() {
       if (e.message.includes("already")) setAdded((s) => new Set([...s, billId]));
       else alert(e.message);
     }
+  }
+
+  async function explainBill(r: any, key: string) {
+    if (explanations.has(key) || explaining.has(key)) return;
+    setExplaining((s) => new Set([...s, key]));
+    try {
+      const isFederal = searchType === "federal-bills";
+      const result = await explainApi.bill({
+        title:           String(r.title ?? r.description ?? ""),
+        state:           String(r.state ?? (isFederal ? "US" : state)),
+        bill_number:     String(r.bill_label ?? r.bill_number ?? r.citation ?? ""),
+        bill_id:         String(r.bill_id ?? ""),
+        status:          String(r.status ?? ""),
+        // Federal enrichment: let backend fetch CRS summary
+        congress:        isFederal ? (r.congress ?? undefined)     : undefined,
+        bill_type:       isFederal ? (r.bill_type ?? undefined)    : undefined,
+        bill_number_int: isFederal ? (r.bill_number ?? undefined)  : undefined,
+      });
+      setExplanations((m) => new Map([...m, [key, result]]));
+    } catch (e: any) { alert(`Explain failed: ${e.message}`); }
+    setExplaining((s) => { const n = new Set(s); n.delete(key); return n; });
   }
 
   async function doExport() {
@@ -421,59 +445,114 @@ export default function SearchPage() {
 
             {/* Result cards */}
             {results.map((r, i) => {
-              const key        = r.bill_id ?? r.citation ?? r.number ?? i;
-              const isAdded    = added.has(String(key));
+              const key        = String(r.bill_id ?? r.citation ?? r.number ?? i);
+              const isAdded    = added.has(key);
+              const isExplaining = explaining.has(key);
+              const explResult = explanations.get(key);
               const extUrl     = getBillUrl(r);
               const label      = getBillLabel(r);
               const detailHref = getDetailHref(r);
               return (
-                <div key={i} className="card p-4 flex items-start gap-3"
+                <div key={i} className="card p-4"
                      style={{ cursor: detailHref ? "pointer" : "default" }}
                      onClick={() => detailHref && window.location.assign(detailHref)}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-pixel text-xs px-2 py-0"
-                            style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)", fontSize: "0.6rem" }}>
-                        {r.state ?? r.congress ?? "US"}
-                      </span>
-                      <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.6rem" }}>
-                        {label}
-                      </span>
-                      {detailHref && (
-                        <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.55rem" }}>
-                          ▶ DETAILS
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="font-pixel text-xs px-2 py-0"
+                              style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)", fontSize: "0.6rem" }}>
+                          {r.state ?? r.congress ?? "US"}
                         </span>
-                      )}
-                      {extUrl && (
-                        <a href={extUrl} target="_blank" rel="noreferrer"
-                           className="font-pixel text-xs"
-                           style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}
-                           onClick={(e) => e.stopPropagation()}>
-                          ↗ VIEW
-                        </a>
+                        <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.6rem" }}>
+                          {label}
+                        </span>
+                        {detailHref && (
+                          <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.55rem" }}>
+                            ▶ DETAILS
+                          </span>
+                        )}
+                        {extUrl && (
+                          <a href={extUrl} target="_blank" rel="noreferrer"
+                             className="font-pixel text-xs"
+                             style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}
+                             onClick={(e) => e.stopPropagation()}>
+                            ↗ VIEW
+                          </a>
+                        )}
+                      </div>
+                      <p className="font-mono text-sm leading-snug">{r.title ?? r.description ?? r.topic ?? "—"}</p>
+                      {(r.status || r.status_date) && (
+                        <p className="font-mono text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                          {r.status}{r.status_date ? ` — ${r.status_date}` : ""}
+                        </p>
                       )}
                     </div>
-                    <p className="font-mono text-sm leading-snug">{r.title ?? r.description ?? r.topic ?? "—"}</p>
-                    {(r.status || r.status_date) && (
-                      <p className="font-mono text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                        {r.status}{r.status_date ? ` — ${r.status_date}` : ""}
-                      </p>
-                    )}
+
+                    <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => addToDocket(r)}
+                              disabled={isAdded}
+                              className="font-pixel text-xs px-3 py-2"
+                              style={{
+                                border:     "3px solid",
+                                borderColor: isAdded ? "#2D7A4F" : "var(--accent)",
+                                background:  isAdded ? "#2D7A4F" : "transparent",
+                                color:       isAdded ? "#fff"    : "var(--accent)",
+                                boxShadow:   isAdded ? "none"    : "3px 3px 0 var(--accent)",
+                                fontSize: "0.6rem",
+                              }}>
+                        {isAdded ? "✓ ADDED" : "+ DOCKET"}
+                      </button>
+                      <button onClick={() => explainBill(r, key)}
+                              disabled={isExplaining || !!explResult}
+                              className="font-pixel text-xs px-3 py-2"
+                              style={{
+                                border:     "3px solid",
+                                borderColor: explResult ? "var(--border)" : "var(--border)",
+                                background:  explResult ? "var(--border)" : "transparent",
+                                color:       explResult ? "var(--bg)"    : "var(--text)",
+                                fontSize: "0.6rem",
+                              }}>
+                        {isExplaining ? "⟳ ..." : explResult ? "📖 SHOWN" : "📖 EXPLAIN"}
+                      </button>
+                    </div>
                   </div>
 
-                  <button onClick={(e) => { e.stopPropagation(); addToDocket(r); }}
-                          disabled={isAdded}
-                          className="font-pixel text-xs px-3 py-2 flex-shrink-0"
-                          style={{
-                            border:     "3px solid",
-                            borderColor: isAdded ? "#2D7A4F" : "var(--accent)",
-                            background:  isAdded ? "#2D7A4F" : "transparent",
-                            color:       isAdded ? "#fff"    : "var(--accent)",
-                            boxShadow:   isAdded ? "none"    : "3px 3px 0 var(--accent)",
-                            fontSize: "0.6rem",
-                          }}>
-                    {isAdded ? "✓ ADDED" : "+ DOCKET"}
-                  </button>
+                  {/* Inline plain-English explanation panel */}
+                  {explResult && (
+                    <div className="mt-3 p-4 flex flex-col gap-3"
+                         style={{ borderTop: "2px dashed var(--border)" }}
+                         onClick={(e) => e.stopPropagation()}>
+                      <p className="font-pixel text-xs" style={{ color: "var(--border)", fontSize: "0.6rem" }}>
+                        📖 PLAIN ENGLISH EXPLANATION
+                      </p>
+                      <p className="font-mono text-sm leading-relaxed" style={{ color: "var(--text)" }}>
+                        {explResult.summary}
+                      </p>
+                      {explResult.key_points?.length > 0 && (
+                        <div>
+                          <p className="font-pixel mb-1" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>KEY CHANGES:</p>
+                          <ul className="flex flex-col gap-1">
+                            {explResult.key_points.map((pt, j) => (
+                              <li key={j} className="font-mono text-xs flex gap-2" style={{ color: "var(--text)" }}>
+                                <span style={{ color: "var(--accent)" }}>▸</span>{pt}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {explResult.who_is_affected && (
+                        <p className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+                          <span className="font-pixel" style={{ fontSize: "0.55rem" }}>WHO'S AFFECTED: </span>
+                          {explResult.who_is_affected}
+                        </p>
+                      )}
+                      {explResult.notes && (
+                        <p className="font-mono text-xs" style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
+                          {explResult.notes}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

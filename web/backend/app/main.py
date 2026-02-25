@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from app.routers import keys, docket, search, reports, export, chat, settings
+from app.routers import keys, docket, search, reports, export, chat, settings, explain, track
 
 load_dotenv()
 
@@ -40,6 +40,8 @@ app.include_router(reports.router, prefix="/reports", tags=["Reports"])
 app.include_router(export.router,  prefix="/export",  tags=["Export"])
 app.include_router(chat.router,     prefix="/chat",     tags=["Chat"])
 app.include_router(settings.router, prefix="/settings", tags=["Settings"])
+app.include_router(explain.router,  prefix="/explain",  tags=["Explain"])
+app.include_router(track.router,    prefix="/track",    tags=["Track"])
 
 
 @app.get("/health", tags=["Health"])

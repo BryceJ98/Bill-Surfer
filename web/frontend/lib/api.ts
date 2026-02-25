@@ -163,6 +163,18 @@ export const chat = {
     request<ChatMessage>("/chat", { method: "POST", body: JSON.stringify({ messages }) }),
 };
 
+// ── Explain ───────────────────────────────────────────────────────────────
+export const explain = {
+  bill: (data: ExplainRequest) =>
+    request<ExplainResult>("/explain", { method: "POST", body: JSON.stringify(data) }),
+};
+
+// ── Track ─────────────────────────────────────────────────────────────────
+export const track = {
+  topic: (data: TrackRequest) =>
+    request<TrackResult>("/track", { method: "POST", body: JSON.stringify(data) }),
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────
 export interface KeyStatus      { provider: string; stored: boolean; masked?: string }
 export interface UserSettings   { user_id?: string; display_name?: string; institution?: string; research_areas?: string[]; ai_provider: string; ai_model: string }
@@ -173,3 +185,21 @@ export interface Report         { id: string; bill_id: string; bill_number: stri
 export interface ReportRequest  { bill_id: string; bill_number: string; state: string; title: string; report_type?: string }
 export interface ExportRequest  { export_type: string; query?: string; state?: string; congress?: number; year?: number; limit?: number }
 export interface ChatMessage    { role: "user" | "assistant" | "system"; content: string }
+export interface ExplainRequest {
+  title: string; state: string; bill_number?: string; bill_id?: string;
+  summary_text?: string; status?: string;
+  congress?: number; bill_type?: string; bill_number_int?: number;
+}
+export interface ExplainResult  {
+  summary: string; key_points: string[]; who_is_affected: string;
+  current_status: string; notes: string;
+}
+export interface TrackRequest   {
+  topic: string; state?: string; congress?: number;
+  include_crs?: boolean; include_record?: boolean;
+}
+export interface TrackResult    {
+  topic: string; federal_bills: any[]; state_bills: any[];
+  crs_reports: any[]; record_items: any[];
+  ai_summary: string; total_federal: number; total_state: number; total_crs: number;
+}
