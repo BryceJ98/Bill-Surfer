@@ -216,12 +216,11 @@ function ReportsPage() {
                         </span>
 
                         {r.status === "complete" && (
-                          <a href={reportsApi.pdfUrl(r.id)}
-                             className="btn-arcade-outline font-pixel"
-                             style={{ fontSize: "0.6rem", padding: "4px 8px" }}
-                             target="_blank" rel="noreferrer">
+                          <button onClick={() => reportsApi.pdfDownload(r.id).catch((e: any) => alert(e.message))}
+                                  className="btn-arcade-outline font-pixel"
+                                  style={{ fontSize: "0.6rem", padding: "4px 8px" }}>
                             ↓ PDF
-                          </a>
+                          </button>
                         )}
 
                         {r.status === "error" && (
@@ -265,11 +264,11 @@ function ReportsPage() {
                         <p className="font-mono text-xs leading-relaxed" style={{ color: "var(--text)" }}>
                           {r.content_json.executive_summary ?? "No summary available."}
                         </p>
-                        <a href={reportsApi.pdfUrl(r.id)} target="_blank" rel="noreferrer"
-                           className="btn-arcade font-pixel text-xs inline-block mt-3"
-                           style={{ fontSize: "0.6rem", padding: "6px 12px" }}>
+                        <button onClick={() => reportsApi.pdfDownload(r.id).catch((e: any) => alert(e.message))}
+                                className="btn-arcade font-pixel text-xs inline-block mt-3"
+                                style={{ fontSize: "0.6rem", padding: "6px 12px" }}>
                           ↓ DOWNLOAD FULL PDF
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>

@@ -120,6 +120,20 @@ export const reports = {
     request<{ report_id: string; status: string }>("/reports", { method: "POST", body: JSON.stringify(data) }),
   get:            (id: string)     => request<Report>(`/reports/${id}`),
   pdfUrl:         (id: string)     => `${BASE}/reports/${id}/pdf`,
+  pdfDownload:    async (id: string): Promise<void> => {
+    const token = await getToken();
+    const res = await fetch(`${BASE}/reports/${id}/pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("PDF download failed");
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `report-${id}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
   setVisibility:  (id: string, isPublic: boolean) =>
     request<void>(`/reports/${id}/visibility?is_public=${isPublic}`, { method: "PATCH" }),
   remove:         (id: string)     => request<void>(`/reports/${id}`, { method: "DELETE" }),
