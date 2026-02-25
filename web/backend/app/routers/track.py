@@ -64,14 +64,26 @@ def track_topic(body: TrackRequest, user=Depends(get_current_user)):
     legiscan_key = get_user_key(user_id, "legiscan")
 
     # ---------------------------------------------------------------------------
-    # 1. Federal bills
+    # 1. Federal bills (LegiScan getSearch for real full-text keyword relevance)
     # ---------------------------------------------------------------------------
     federal_bills: list[dict] = []
-    if congress_key:
+    if legiscan_key:
         try:
-            r = cc.search_bills(body.topic, congress=body.congress, limit=20, api_key=congress_key)
-            federal_bills = r.get("bills", [])
-            log_api_usage(user_id, "congress")
+            r = lc.search_bills(body.topic, state="US", year=2, api_key=legiscan_key)
+            bills_raw = r.get("bills", []) if isinstance(r, dict) else []
+            federal_bills = [
+                {
+                    "bill_label": b.get("bill_number", ""),
+                    "title":      b.get("title", ""),
+                    "status":     b.get("last_action", ""),
+                    "status_date": b.get("last_action_date", ""),
+                    "state":      "US",
+                    "url":        b.get("url", ""),
+                    "bill_id":    str(b.get("bill_id", "")),
+                }
+                for b in bills_raw[:20]
+            ]
+            log_api_usage(user_id, "legiscan")
         except Exception:
             pass
 

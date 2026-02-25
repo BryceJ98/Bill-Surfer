@@ -224,8 +224,23 @@ def _dispatch_tool(
     try:
         # ── Legislative search ──────────────────────────────────────────
         if name == "search_federal_bills":
-            r = cc.search_bills(args["query"], congress=args.get("congress"), limit=args.get("limit", 10), api_key=congress_key)
-            log_api_usage(user_id, "congress")
+            raw = lc.search_bills(args["query"], state="US", year=2, api_key=legiscan_key)
+            bills_raw = raw.get("bills", []) if isinstance(raw, dict) else []
+            r = {
+                "bills": [
+                    {
+                        "bill_id":    str(b.get("bill_id", "")),
+                        "bill_label": b.get("bill_number", ""),
+                        "title":      b.get("title", ""),
+                        "status":     b.get("last_action", ""),
+                        "state":      "US",
+                        "url":        b.get("url", ""),
+                    }
+                    for b in bills_raw[:args.get("limit", 10)]
+                ],
+                "total": len(bills_raw),
+            }
+            log_api_usage(user_id, "legiscan")
 
         elif name == "get_federal_bill":
             r = cc.get_bill(args["congress"], args["bill_type"], args["bill_number"], api_key=congress_key)

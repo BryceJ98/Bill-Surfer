@@ -28,22 +28,42 @@ def _require_key(user_id: str, provider: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Federal: bills
+# Federal: bills  (uses LegiScan getSearch for real full-text relevance)
 # ---------------------------------------------------------------------------
-@router.get("/federal/bills", summary="Search federal bills (Congress.gov)")
+@router.get("/federal/bills", summary="Search federal bills (LegiScan full-text)")
 def search_federal_bills(
     q:        str  = Query(..., description="Search keywords"),
-    congress: int  = Query(None, description="Congress number (default: current)"),
+    congress: int  = Query(None, description="Ignored — LegiScan searches current session"),
     limit:    int  = Query(20,   ge=1, le=250),
     offset:   int  = Query(0,    ge=0),
     user      = Depends(get_current_user),
 ):
-    api_key = _require_key(user["user_id"], "congress")
-    result = cc.search_bills(q, congress=congress, limit=limit, offset=offset, api_key=api_key)
-    if "error" in result:
+    api_key = _require_key(user["user_id"], "legiscan")
+    result = lc.search_bills(q, state="US", year=2, api_key=api_key)
+    if isinstance(result, dict) and "error" in result:
         raise HTTPException(status_code=502, detail=result["error"])
-    log_api_usage(user["user_id"], "congress")
-    return result
+    log_api_usage(user["user_id"], "legiscan")
+    bills_all = result.get("bills", []) if isinstance(result, dict) else []
+    normalized = [
+        {
+            "bill_id":    str(b.get("bill_id", "")),
+            "bill_label": b.get("bill_number", ""),
+            "title":      b.get("title", ""),
+            "status":     b.get("last_action", ""),
+            "status_date": b.get("last_action_date", ""),
+            "state":      "US",
+            "url":        b.get("url", ""),
+            "relevance":  b.get("relevance", 0),
+        }
+        for b in bills_all
+    ]
+    page = normalized[offset : offset + limit]
+    return {
+        "bills":   page,
+        "total":   len(normalized),
+        "query":   q,
+        "summary": result.get("summary", {}) if isinstance(result, dict) else {},
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -265,16 +285,24 @@ def agent_search(body: AgentSearchRequest, user=Depends(get_current_user)):
         try:
             if name == "search_federal_bills":
                 q   = args.get("query", "")
-                cng = args.get("congress")
-                searches.append(f"Federal: \"{q}\"" + (f" ({cng}th)" if cng else ""))
-                r = cc.search_bills(q, congress=cng, limit=args.get("limit", 10), api_key=congress_key)
-                log_api_usage(user_id, "congress")
-                for b in r.get("bills", []):
-                    bid = b.get("bill_id", "")
+                searches.append(f"Federal: \"{q}\"")
+                r = lc.search_bills(q, state="US", year=2, api_key=legiscan_key)
+                log_api_usage(user_id, "legiscan")
+                bills_raw = r.get("bills", []) if isinstance(r, dict) else []
+                for b in bills_raw[:args.get("limit", 10)]:
+                    bid = str(b.get("bill_id", ""))
                     if bid and bid not in seen_ids:
                         seen_ids.add(bid)
-                        collected.append(b)
-                return json.dumps(r, default=str)[:4000]
+                        collected.append({
+                            "bill_id":    bid,
+                            "bill_label": b.get("bill_number", ""),
+                            "title":      b.get("title", ""),
+                            "status":     b.get("last_action", ""),
+                            "status_date": b.get("last_action_date", ""),
+                            "state":      "US",
+                            "url":        b.get("url", ""),
+                        })
+                return json.dumps({"bills": bills_raw[:10], "summary": r.get("summary", {})}, default=str)[:4000]
 
             elif name == "get_federal_bill":
                 r = cc.get_bill(args["congress"], args["bill_type"], args["bill_number"], api_key=congress_key)
