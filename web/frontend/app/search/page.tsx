@@ -4,7 +4,7 @@ import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
 import { search as searchApi, docket as docketApi, exportCsv } from "@/lib/api";
 
-type SearchType = "federal-bills" | "nominations" | "treaties" | "state-bills";
+type SearchType = "federal-bills" | "nominations" | "treaties" | "state-bills" | "agent";
 
 const PAGE_SIZE = 20;
 const CURRENT_CONGRESS = 119;
@@ -17,6 +17,7 @@ const CONGRESS_RANGE: Record<SearchType, { min: number } | null> = {
   "nominations":   { min: 100 },   // nominations: 100th (1987) onward
   "treaties":      { min: 90  },   // treaties: 90th (1967) onward
   "state-bills":   null,           // uses year filter, not congress
+  "agent":         null,           // AI agent — no congress filter
 };
 
 function ordinal(n: number): string {
@@ -39,20 +40,26 @@ const PLACEHOLDERS: Record<SearchType, string> = {
   "nominations":   "e.g. secretary, ambassador, judge...",
   "treaties":      "e.g. Japan, trade, extradition, defense... (optional)",
   "state-bills":   "e.g. minimum wage, climate, education...",
+  "agent":         "",  // agent has its own input
 };
 
 export default function SearchPage() {
-  const [searchType,  setSearchType]  = useState<SearchType>("federal-bills");
-  const [query,       setQuery]       = useState("");
-  const [state,       setState]       = useState("CA");
-  const [congress,    setCongress]    = useState<number | "">("");
-  const [results,     setResults]     = useState<any[]>([]);
-  const [total,       setTotal]       = useState(0);
-  const [page,        setPage]        = useState(0);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState("");
-  const [exportError, setExportError] = useState("");
-  const [added,       setAdded]       = useState<Set<string>>(new Set());
+  const [searchType,    setSearchType]    = useState<SearchType>("federal-bills");
+  const [query,         setQuery]         = useState("");
+  const [state,         setState]         = useState("CA");
+  const [congress,      setCongress]      = useState<number | "">("");
+  const [results,       setResults]       = useState<any[]>([]);
+  const [total,         setTotal]         = useState(0);
+  const [page,          setPage]          = useState(0);
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState("");
+  const [exportError,   setExportError]   = useState("");
+  const [added,         setAdded]         = useState<Set<string>>(new Set());
+  // Agent search state
+  const [agentQuery,    setAgentQuery]    = useState("");
+  const [agentLoading,  setAgentLoading]  = useState(false);
+  const [agentResult,   setAgentResult]   = useState<{ bills: any[]; explanation: string; searches: string[] } | null>(null);
+  const [agentError,    setAgentError]    = useState("");
 
   function switchTab(t: SearchType) {
     setSearchType(t);
@@ -61,6 +68,17 @@ export default function SearchPage() {
     setPage(0);
     setError("");
     setExportError("");
+    setAgentError("");
+  }
+
+  async function doAgentSearch() {
+    if (!agentQuery.trim() || agentLoading) return;
+    setAgentError(""); setAgentLoading(true); setAgentResult(null);
+    try {
+      const data = await searchApi.agent(agentQuery.trim());
+      setAgentResult({ bills: data.bills, explanation: data.explanation, searches: data.searches });
+    } catch (e: any) { setAgentError(e.message); }
+    setAgentLoading(false);
   }
 
   async function doSearch(pageNum = 0) {
@@ -161,10 +179,166 @@ export default function SearchPage() {
               {searchType === t ? "▶ " : ""}{t.toUpperCase().replace(/-/g," ")}
             </button>
           ))}
+          {/* AI Search tab — distinct style */}
+          <button onClick={() => switchTab("agent")}
+                  className="font-pixel text-xs px-3 py-2"
+                  style={{
+                    border:     "3px solid",
+                    borderColor: searchType === "agent" ? "var(--border)" : "var(--border)",
+                    background:  searchType === "agent" ? "var(--border)" : "transparent",
+                    color:       searchType === "agent" ? "var(--bg)"     : "var(--border)",
+                    boxShadow:   searchType === "agent" ? "3px 3px 0 var(--accent)" : "none",
+                    fontSize: "0.65rem",
+                  }}>
+            {searchType === "agent" ? "▶ " : ""}🤖 AI SEARCH
+          </button>
         </div>
 
-        {/* Search form */}
-        <div className="card p-4 flex flex-col gap-3">
+        {/* ── Agent search UI ─────────────────────────────────────── */}
+        {searchType === "agent" && (
+          <div className="flex flex-col gap-4">
+            <div className="card p-5 flex flex-col gap-3">
+              <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }}>
+                DESCRIBE WHAT YOU'RE LOOKING FOR IN PLAIN ENGLISH
+              </p>
+              <textarea
+                className="input-arcade"
+                rows={3}
+                style={{ resize: "vertical", fontFamily: "inherit" }}
+                placeholder={`e.g. "Find the CHIPS Act"\n"Senate bills restricting social media for minors"\n"California legislation on wildfire insurance from 2024"`}
+                value={agentQuery}
+                onChange={(e) => setAgentQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) doAgentSearch(); }}
+              />
+              <button className="btn-arcade font-pixel text-xs" onClick={doAgentSearch}
+                      disabled={agentLoading || !agentQuery.trim()}>
+                {agentLoading ? "🤖 AGENT SEARCHING..." : "🤖 RUN AGENT SEARCH"}
+              </button>
+              <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>
+                The agent runs multiple searches across congress numbers and keyword variations — may take 15-30 seconds.
+                Uses your configured AI model + Congress API key.
+              </p>
+            </div>
+
+            {agentError && (
+              <p className="font-pixel text-xs p-3" style={{ background: "#fff0f0", color: "#c53030", border: "2px solid #c53030" }}>
+                ⚠ {agentError}
+              </p>
+            )}
+
+            {agentLoading && (
+              <div className="card p-5 flex flex-col gap-2">
+                <p className="font-pixel text-xs animate-pulse" style={{ color: "var(--accent)" }}>
+                  🤖 AGENT IS SEARCHING...
+                </p>
+                <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>
+                  Running targeted searches across multiple congresses and keyword variations.
+                </p>
+              </div>
+            )}
+
+            {agentResult && (
+              <div className="flex flex-col gap-3">
+                {/* Searches run */}
+                {agentResult.searches.length > 0 && (
+                  <div className="p-3" style={{ background: "var(--bg-card)", border: "2px dashed var(--border)" }}>
+                    <p className="font-pixel mb-1" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>SEARCHES RUN:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {agentResult.searches.map((s, i) => (
+                        <span key={i} className="font-pixel px-2 py-1"
+                              style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)", fontSize: "0.5rem" }}>
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI explanation */}
+                {agentResult.explanation && (
+                  <div className="p-4" style={{ background: "var(--bg-card)", border: "3px solid var(--border)", borderLeft: "6px solid var(--border)" }}>
+                    <p className="font-pixel mb-1" style={{ color: "var(--border)", fontSize: "0.55rem" }}>🤖 AGENT SUMMARY</p>
+                    <p className="font-mono text-sm leading-relaxed" style={{ color: "var(--text)" }}>
+                      {agentResult.explanation}
+                    </p>
+                  </div>
+                )}
+
+                {/* Result count */}
+                <p className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>
+                  {agentResult.bills.length} BILLS FOUND
+                </p>
+
+                {/* Bill cards — same format as regular search */}
+                {agentResult.bills.length === 0 ? (
+                  <div className="card p-6 flex flex-col items-center gap-2">
+                    <p className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>NO BILLS FOUND</p>
+                    <p className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+                      Try rephrasing your query or adding more context.
+                    </p>
+                  </div>
+                ) : (
+                  agentResult.bills.map((r, i) => {
+                    const key     = r.bill_id ?? r.citation ?? i;
+                    const isAdded = added.has(String(key));
+                    const extUrl  = r.url ?? r.congress_url ?? null;
+                    const label   = r.bill_label ?? r.bill_number ?? r.citation ?? "—";
+                    const detailHref = (r.congress && r.bill_type && r.bill_number)
+                      ? `/bill/US/${r.congress}-${r.bill_type}-${r.bill_number}`
+                      : (r.bill_id && r.state && r.state !== "US")
+                        ? `/bill/${r.state}/${r.bill_id}`
+                        : null;
+                    return (
+                      <div key={i} className="card p-4 flex items-start gap-3"
+                           style={{ cursor: detailHref ? "pointer" : "default" }}
+                           onClick={() => detailHref && window.location.assign(detailHref)}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="font-pixel text-xs px-2 py-0"
+                                  style={{ background: "var(--primary)", color: "var(--bg)", border: "2px solid var(--border)", fontSize: "0.6rem" }}>
+                              {r.state ?? r.congress ?? "US"}
+                            </span>
+                            <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.6rem" }}>{label}</span>
+                            {detailHref && (
+                              <span className="font-pixel text-xs" style={{ color: "var(--accent)", fontSize: "0.55rem" }}>▶ DETAILS</span>
+                            )}
+                            {extUrl && (
+                              <a href={extUrl} target="_blank" rel="noreferrer"
+                                 className="font-pixel text-xs" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}
+                                 onClick={(e) => e.stopPropagation()}>↗ VIEW</a>
+                            )}
+                          </div>
+                          <p className="font-mono text-sm leading-snug">{r.title ?? r.description ?? "—"}</p>
+                          {(r.status || r.status_date) && (
+                            <p className="font-mono text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                              {r.status}{r.status_date ? ` — ${r.status_date}` : ""}
+                            </p>
+                          )}
+                        </div>
+                        <button onClick={(e) => { e.stopPropagation(); addToDocket(r); }}
+                                disabled={isAdded}
+                                className="font-pixel text-xs px-3 py-2 flex-shrink-0"
+                                style={{
+                                  border:     "3px solid",
+                                  borderColor: isAdded ? "#2D7A4F" : "var(--accent)",
+                                  background:  isAdded ? "#2D7A4F" : "transparent",
+                                  color:       isAdded ? "#fff"    : "var(--accent)",
+                                  boxShadow:   isAdded ? "none"    : "3px 3px 0 var(--accent)",
+                                  fontSize: "0.6rem",
+                                }}>
+                          {isAdded ? "✓ ADDED" : "+ DOCKET"}
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Regular search form — hidden on agent tab */}
+        {searchType !== "agent" && <div className="card p-4 flex flex-col gap-3">
           <div className="flex gap-2 flex-wrap">
             {/* Keyword input — always shown; optional for treaties */}
             <input className="input-arcade flex-1"
@@ -212,10 +386,10 @@ export default function SearchPage() {
 
           {error       && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ {error}</p>}
           {exportError && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ Export failed: {exportError}</p>}
-        </div>
+        </div>}
 
-        {/* Results */}
-        {results.length > 0 && (
+        {/* Results — hidden on agent tab */}
+        {searchType !== "agent" && results.length > 0 && (
           <div className="flex flex-col gap-2">
             {/* Count + pagination */}
             <div className="flex items-center justify-between flex-wrap gap-2">

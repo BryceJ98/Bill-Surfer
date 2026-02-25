@@ -102,7 +102,16 @@ export const search = {
     request<any>(`/search/federal/bill/full?congress=${congress}&bill_type=${encodeURIComponent(bill_type)}&bill_number=${bill_number}`),
   stateBillDetail: (bill_id: number) =>
     request<any>(`/search/state/bill?bill_id=${bill_id}`),
+  agent: (query: string, state?: string) =>
+    request<AgentSearchResult>("/search/agent", { method: "POST", body: JSON.stringify({ query, state }) }),
 };
+
+export interface AgentSearchResult {
+  bills:       any[];
+  explanation: string;
+  searches:    string[];
+  query:       string;
+}
 
 // ── Reports ───────────────────────────────────────────────────────────────
 export const reports = {
