@@ -7,7 +7,7 @@ const PUBLIC_PATHS = ["/", "/login"];
 // ── Maintenance mode ─────────────────────────────────────────────────────────
 // To take the site offline: set MAINTENANCE to true, commit, push.
 // To bring it back: set MAINTENANCE to false, commit, push.
-const MAINTENANCE = true;
+const MAINTENANCE = false;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function middleware(request: NextRequest) {
