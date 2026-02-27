@@ -452,9 +452,9 @@ export default function SearchPage() {
                               <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.5rem" }}>
                                 {doc.publication_date}
                               </span>
-                              {doc.comment_date && (
+                              {doc.comments_close_on && (
                                 <span className="font-pixel" style={{ color: "#856404", fontSize: "0.5rem" }}>
-                                  ● COMMENT BY {doc.comment_date}
+                                  ● COMMENT BY {doc.comments_close_on}
                                 </span>
                               )}
                             </div>

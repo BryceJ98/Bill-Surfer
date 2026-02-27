@@ -134,9 +134,9 @@ export default function Dashboard() {
                                 {doc.agency_names[0].length > 40 ? doc.agency_names[0].slice(0, 40) + "…" : doc.agency_names[0]}
                               </span>
                             )}
-                            {doc.comment_date && (
+                            {doc.comments_close_on && (
                               <span className="font-pixel" style={{ color: "#856404", fontSize: "0.5rem" }}>
-                                ● COMMENT BY {doc.comment_date}
+                                ● COMMENT BY {doc.comments_close_on}
                               </span>
                             )}
                           </div>

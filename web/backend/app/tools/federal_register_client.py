@@ -11,16 +11,9 @@ Implements the Regulatory Burden Score (RBS) from the BillSurfer burden engine:
   - Friction keywords: +3 each (compliance, penalty, mandatory, etc.)
   - Document type:    RULE +15 | PRORULE +10 | PRESDOCU +10 | NOTICE 0
   - Cap: 100
-
-NOTE: The FR API requires raw (unencoded) brackets in query params, e.g.
-  fields[]=title   NOT   fields%5B%5D=title
-`requests` always re-encodes [ ] via requote_uri(), causing 400 errors.
-We use urllib.request instead, which sends the URL as-is.
 """
 
-import json
-import urllib.parse
-import urllib.request
+import requests
 from datetime import datetime
 
 BASE = "https://www.federalregister.gov/api/v1"
@@ -29,7 +22,7 @@ _FIELDS = [
     "document_number", "title", "type", "abstract",
     "agency_names", "publication_date", "html_url",
     "significant", "cfr_references", "comment_url",
-    "effective_on", "comment_date",
+    "effective_on", "comments_close_on",
 ]
 
 _FRICTION_TERMS = [
@@ -55,32 +48,6 @@ def _enrich(doc: dict) -> dict:
     return {**doc, "rbs": _score(doc)}
 
 
-def _build_url(path: str, params: dict) -> str:
-    """
-    Build a query string keeping bracket characters unencoded.
-    safe='[]' prevents urllib from percent-encoding [ and ].
-    """
-    parts = []
-    for key, val in params.items():
-        enc_key = urllib.parse.quote(str(key), safe="[]")
-        if isinstance(val, list):
-            for item in val:
-                parts.append(f"{enc_key}={urllib.parse.quote(str(item), safe='')}")
-        else:
-            parts.append(f"{enc_key}={urllib.parse.quote(str(val), safe='')}")
-    return f"{path}?{'&'.join(parts)}"
-
-
-def _get(url: str) -> dict:
-    """
-    HTTP GET using stdlib urllib.request, which does NOT re-encode the URL.
-    Raises urllib.error.HTTPError on 4xx/5xx (compatible with raise_for_status).
-    """
-    req = urllib.request.Request(url, headers={"User-Agent": "BillSurfer/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return json.loads(resp.read().decode("utf-8"))
-
-
 def get_daily_digest(date: str | None = None, limit: int = 20) -> list[dict]:
     """
     Fetch Rules, Proposed Rules, and Executive Orders published on `date`
@@ -93,9 +60,9 @@ def get_daily_digest(date: str | None = None, limit: int = 20) -> list[dict]:
         "per_page":                          limit,
         "fields[]":                          _FIELDS,
     }
-    url  = _build_url(f"{BASE}/documents.json", params)
-    data = _get(url)
-    docs = data.get("results", [])
+    resp = requests.get(f"{BASE}/documents.json", params=params, timeout=15)
+    resp.raise_for_status()
+    docs = resp.json().get("results", [])
     return sorted([_enrich(d) for d in docs], key=lambda x: x["rbs"], reverse=True)
 
 
@@ -111,7 +78,7 @@ def search_documents(keyword: str, doc_types: list[str] | None = None, limit: in
         "per_page":           limit,
         "fields[]":           _FIELDS,
     }
-    url  = _build_url(f"{BASE}/documents.json", params)
-    data = _get(url)
-    docs = data.get("results", [])
+    resp = requests.get(f"{BASE}/documents.json", params=params, timeout=15)
+    resp.raise_for_status()
+    docs = resp.json().get("results", [])
     return sorted([_enrich(d) for d in docs], key=lambda x: x["rbs"], reverse=True)

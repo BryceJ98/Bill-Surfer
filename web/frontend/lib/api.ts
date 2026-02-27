@@ -239,7 +239,7 @@ export interface TrackRequest   {
   topic: string; state?: string; congress?: number;
   include_crs?: boolean; include_record?: boolean;
 }
-export interface FrDocument        { document_number: string; title: string; type: string; abstract?: string; agency_names?: string[]; publication_date: string; html_url: string; significant?: boolean; comment_url?: string; effective_on?: string; comment_date?: string; rbs: number }
+export interface FrDocument        { document_number: string; title: string; type: string; abstract?: string; agency_names?: string[]; publication_date: string; html_url: string; significant?: boolean; comment_url?: string; effective_on?: string; comments_close_on?: string; rbs: number }
 export interface FrDigestResult    { date: string; count: number; documents: FrDocument[] }
 export interface FrSearchResult    { query: string; count: number; documents: FrDocument[] }
 export interface MemoryState       { enabled: boolean; summary: string; updated_at: string | null }
