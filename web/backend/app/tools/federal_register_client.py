@@ -13,6 +13,7 @@ Implements the Regulatory Burden Score (RBS) from the BillSurfer burden engine:
   - Cap: 100
 """
 
+import urllib.parse
 import requests
 from datetime import datetime
 
@@ -48,6 +49,23 @@ def _enrich(doc: dict) -> dict:
     return {**doc, "rbs": _score(doc)}
 
 
+def _build_url(path: str, params: dict) -> str:
+    """
+    Build a URL keeping bracket characters unencoded (e.g. fields[], conditions[type][]).
+    The Federal Register API parses raw brackets; requests encodes them to %5B%5D which
+    causes a 400 Bad Request.
+    """
+    parts = []
+    for key, val in params.items():
+        enc_key = urllib.parse.quote(str(key), safe="[]")
+        if isinstance(val, list):
+            for item in val:
+                parts.append(f"{enc_key}={urllib.parse.quote(str(item), safe='')}")
+        else:
+            parts.append(f"{enc_key}={urllib.parse.quote(str(val), safe='')}")
+    return f"{path}?{'&'.join(parts)}"
+
+
 def get_daily_digest(date: str | None = None, limit: int = 20) -> list[dict]:
     """
     Fetch Rules, Proposed Rules, and Executive Orders published on `date`
@@ -60,7 +78,8 @@ def get_daily_digest(date: str | None = None, limit: int = 20) -> list[dict]:
         "per_page":                          limit,
         "fields[]":                          _FIELDS,
     }
-    resp = requests.get(f"{BASE}/documents.json", params=params, timeout=15)
+    url  = _build_url(f"{BASE}/documents.json", params)
+    resp = requests.get(url, timeout=15)
     resp.raise_for_status()
     docs = resp.json().get("results", [])
     return sorted([_enrich(d) for d in docs], key=lambda x: x["rbs"], reverse=True)
@@ -78,7 +97,8 @@ def search_documents(keyword: str, doc_types: list[str] | None = None, limit: in
         "per_page":           limit,
         "fields[]":           _FIELDS,
     }
-    resp = requests.get(f"{BASE}/documents.json", params=params, timeout=15)
+    url  = _build_url(f"{BASE}/documents.json", params)
+    resp = requests.get(url, timeout=15)
     resp.raise_for_status()
     docs = resp.json().get("results", [])
     return sorted([_enrich(d) for d in docs], key=lambda x: x["rbs"], reverse=True)
