@@ -1,0 +1,62 @@
+import requests
+import re
+from datetime import datetime
+
+class BurdenEngine:
+    def __init__(self):
+        self.api_url = "https://www.federalregister.gov/api/v1/documents.json"
+        # High-friction keywords that indicate compliance costs or legal penalties
+        self.friction_terms = [
+            'mandatory', 'compliance', 'penalty', 'fines', 'reporting', 
+            'deadline', 'prohibited', 'requirement', 'audit', 'enforcement'
+        ]
+
+    def fetch_daily_data(self):
+        """Fetch today's documents with necessary metadata."""
+        params = {
+            "conditions[publication_date][is]": datetime.now().strftime('%Y-%m-%d'),
+            "fields[]": ["document_number", "title", "type", "significant", "abstract", "cfr_references", "body_html_url"]
+        }
+        response = requests.get(self.api_url, params=params)
+        return response.json().get('results', [])
+
+    def calculate_score(self, doc):
+        """The scoring logic for BillSurfer RBS (Regulatory Burden Score)."""
+        score = 10  # Baseline score for any government action
+
+        # 1. Economic Significance (The "Big One")
+        if doc.get('significant'):
+            score += 40
+
+        # 2. Legal Density (CFR References)
+        cfr_count = len(doc.get('cfr_references', []))
+        score += min(cfr_count * 5, 20)  # Max 20 points for complexity
+
+        # 3. Societal Friction (Keyword Analysis)
+        text_to_scan = (doc.get('abstract') or "").lower()
+        matches = [term for term in self.friction_terms if term in text_to_scan]
+        score += len(matches) * 3  # 3 points per high-friction term found
+
+        # 4. Document Type Weighting
+        type_weights = {'RULE': 15, 'PRORULE': 10, 'PRESDOCU': 10, 'NOTICE': 0}
+        score += type_weights.get(doc.get('type'), 0)
+
+        return min(score, 100)  # Cap at 100
+
+    def run_digest(self):
+        docs = self.fetch_daily_data()
+        digest = []
+        for doc in docs:
+            rbs = self.calculate_score(doc)
+            digest.append({
+                "title": doc['title'],
+                "score": rbs,
+                "impact": "HIGH" if rbs > 60 else "MED" if rbs > 30 else "LOW",
+                "link": doc['body_html_url']
+            })
+        return sorted(digest, key=lambda x: x['score'], reverse=True)
+
+# Run and Print
+engine = BurdenEngine()
+for entry in engine.run_digest()[:5]: # Top 5 most burdensome today
+    print(f"[{entry['impact']} - {entry['score']}/100] {entry['title']}")

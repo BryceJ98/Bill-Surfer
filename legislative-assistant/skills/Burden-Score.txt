@@ -1,0 +1,30 @@
+# Specification: Regulatory Burden Score (RBS) for BillSurfer
+
+## Objective
+Calculate a 1–100 score for every Federal Register document to represent its "Societal Friction" or "Daily Life Impact."
+
+## 1. Data Inputs (from FR API)
+* `is_significant`: If `true`, baseline score starts at 50.
+* `page_length`: Number of pages in the PDF version.
+* `cfr_references`: The array of `title` and `part` objects.
+* `document_type`: `RULE` (High weight), `PRORULE` (Medium weight), `NOTICE` (Low weight).
+
+## 2. The Scoring Algorithm (Claude Implementation)
+1. **The "Significant" Jump:** - If `significant == true`, `score += 40`.
+2. **The Compliance Density (Keyword Sweep):**
+   - Scan the `abstract` and `full_text` for "Mandatory", "Requirement", "Fine", "Reporting", and "Deadline".
+   - `score += (keyword_count * 2)`, capped at 20.
+3. **The Complexity Factor (CFR Count):**
+   - Count unique CFR Parts impacted.
+   - `score += (cfr_parts_count * 5)`, capped at 20.
+4. **The Urgency Multiplier:**
+   - If the `effective_date` is less than 30 days from `publication_date`, multiply total score by 1.2.
+
+## 3. UI Visualization (BillSurfer Frontend)
+* **0–30 (Low):** "Routine Admin" (e.g., a bridge opening schedule).
+* **31–60 (Medium):** "Industry Specific" (e.g., new safety standards for widget manufacturers).
+* **61–100 (High):** "Major Impact" (e.g., nationwide emissions changes or healthcare mandate).
+
+## 4. Claude's Task
+- Write a Python function `calculate_burden_score(api_response)` that implements this logic.
+- Create a 'Burden Heatmap' component that colors the BillSurfer feed (Green to Red) based on this score.

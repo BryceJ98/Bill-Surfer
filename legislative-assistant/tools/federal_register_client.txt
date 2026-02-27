@@ -1,0 +1,34 @@
+import requests
+from datetime import datetime
+
+class FederalRegisterClient:
+    BASE_URL = "https://www.federalregister.gov/api/v1"
+
+    def get_daily_documents(self, date=None):
+        """Fetches all documents published on a specific date."""
+        target_date = date or datetime.now().strftime('%Y-%m-%d')
+        endpoint = f"{self.BASE_URL}/documents.json"
+        
+        params = {
+            "conditions[publication_date][is]": target_date,
+            "per_page": 50,
+            "fields[]": ["document_number", "title", "type", "agency_names", "abstract", "html_url"]
+        }
+        
+        response = requests.get(endpoint, params=params)
+        response.raise_for_status()
+        return response.json().get('results', [])
+
+    def search_by_topic(self, keyword):
+        """Searches for documents across time based on a keyword."""
+        endpoint = f"{self.BASE_URL}/documents.json"
+        params = {
+            "conditions[term]": keyword,
+            "sort": "newest"
+        }
+        return requests.get(endpoint, params=params).json().get('results', [])
+
+# Example Usage
+client = FederalRegisterClient()
+today_docs = client.get_daily_documents()
+print(f"Found {len(today_docs)} documents for today.")

@@ -1,0 +1,86 @@
+# Integration Specification: Federal Register API for BillSurfer.com
+
+## Project Context
+**Site:** BillSurfer.com
+**Goal:** Integrate real-time Federal regulatory data (Rules, Proposed Rules, and Executive Orders) into the BillSurfer platform to complement existing legislative tracking.
+
+## API Technical Overview
+- **Base URL:** `https://www.federalregister.gov/api/v1/`
+- **Auth:** None (No API Key required).
+- **Format:** JSON (preferred) or CSV.
+- **Documentation:** https://www.federalregister.gov/reader-aids/developer-resources/rest-api
+
+## Implementation Requirements
+
+### 1. Document Discovery & Filtering
+When querying for BillSurfer, prioritize the following endpoints:
+* **Search Documents:** `/documents.json`
+* **Required Filters:**
+    * `conditions[term]`: Keyword matching for specific bill topics.
+    * `conditions[type][]`: Filter for `RULE`, `PRORULE` (Proposed Rules), and `PRESDOCU` (Executive Orders).
+    * `conditions[agency_ids][]`: To group data by specific federal agencies.
+
+### 2. Data Mapping
+Map the following Federal Register fields to BillSurfer's internal schema:
+* `document_number`: Unique identifier for the record.
+* `title`: The primary headline for the UI.
+* `abstract`: Short summary for the "Surfer Snippet" view.
+* `html_url`: Direct link for users to read the full text.
+* `publication_date`: The timestamp for timeline sorting.
+* `legal_advisory`: For displaying the "Effective Date" or "Comments Close Date."
+
+### 3. Key Functionalities to Build
+* **The "Regulation Tracker":** A view that shows rules related to a specific Bill ID or topic.
+* **Agency Pulse:** A dashboard component showing the most recent activity from the top 5 agencies tracked by BillSurfer users.
+* **Public Comment Alerts:** A notification trigger for `PRORULE` types where the `comment_url` is active.
+
+## Technical Constraints & Best Practices
+* **Pagination:** Use the `links` object provided in the API response to handle multi-page results.
+* **Throttling:** While there is no API key, implement a local cache (e.g., Redis) for document metadata to stay within polite usage limits.
+* **Daily Sync:** Run a cron job at 9:00 AM EST (when the Daily Issue is typically published) to refresh the "Public Inspection" list.
+
+## Claude's Role
+1. Generate the Python/Node.js boilerplate for the API client.
+2. Design the SQL schema or NoSQL document structure to store these regulatory records.
+3. Suggest UI components for displaying "Comment Periods" for proposed rules.
+
+# Integration Specification: Mapping Federal Register to BillSurfer Database
+
+## Current Context
+BillSurfer already maintains a database of **Congressional Bills** (H.R., S., etc.). The goal is to create a relational link between these bills and the **Administrative Rules** or **Executive Orders** published in the Federal Register.
+
+## 1. Proposed Schema Extension
+To link the Federal Register API data with our existing `bills` table, implement a `regulations` table and a many-to-many junction table.
+
+### New Table: `regulations`
+* `id`: Primary Key (Internal UUID).
+* `document_number`: Unique string (from FR API).
+* `title`: String.
+* `type`: Enum (RULE, PRORULE, PRESDOCU).
+* `publication_date`: Date.
+* `comment_url`: String (Nullable, only for PRORULE).
+* `effective_on`: Date (Nullable).
+* `abstract`: Text.
+* `fr_url`: String (Link to federalregister.gov).
+
+### Junction Table: `bill_regulation_links`
+* `bill_id`: Foreign Key to `bills.id`.
+* `reg_id`: Foreign Key to `regulations.id`.
+* `link_type`: Enum (CITED_IN_RULE, STATUTORY_AUTHORITY, DIRECT_REFERENCE).
+
+## 2. Linking Logic (The "Linker" Engine)
+Since the Federal Register API doesn't provide a direct "Bill ID" field, Claude should help build a script that:
+1.  **Keyword Matching:** Searches the `abstract` and `full_text` for patterns like "H.R. [Number]" or "S. [Number]".
+2.  **Agency Context:** Filters by agencies that are primarily responsible for the subject matter of the bill (e.g., Department of Energy for an energy-focused bill).
+3.  **Statutory Authority:** Maps the "CFR References" (Code of Federal Regulations) in the API to the "US Code" citations often found in our bill data.
+
+## 3. Daily Digest Generation Logic
+The system should run a daily task to generate a "Digest" for users.
+* **Step 1:** Query the FR API for all documents published in the last 24 hours.
+* **Step 2:** Run the Linker Engine to see if any new Rules/Proposed Rules reference bills in our database.
+* **Step 3:** For users "watching" specific bills, generate a notification: *"A new Proposed Rule was just published citing H.R. 1234. Comment period ends in 30 days."*
+
+## 4. Claude's Tasks
+1.  **SQL Migration:** Write the SQL `CREATE TABLE` statements for the new schema.
+2.  **Matching Script:** Write a Python function using Regex to extract Bill IDs from Federal Register abstracts.
+3.  **API Sync:** Create a background job (e.g., using Celery or GitHub Actions) that pulls daily FR updates and populates the `regulations` table.
