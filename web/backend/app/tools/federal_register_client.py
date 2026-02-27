@@ -45,12 +45,7 @@ def _score(doc: dict) -> int:
 
 
 def _enrich(doc: dict) -> dict:
-    rbs = _score(doc)
-    return {
-        **doc,
-        "rbs":    rbs,
-        "impact": "HIGH" if rbs > 60 else "MED" if rbs > 30 else "LOW",
-    }
+    return {**doc, "rbs": _score(doc)}
 
 
 def get_daily_digest(date: str | None = None, limit: int = 20) -> list[dict]:

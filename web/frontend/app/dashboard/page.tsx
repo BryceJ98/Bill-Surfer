@@ -169,21 +169,16 @@ export default function Dashboard() {
           {!frLoading && frDigest && frDigest.length > 0 && (
             <div className="flex flex-col gap-2">
               {frDigest.map((doc) => {
-                const impactColor = doc.impact === "HIGH" ? "#c53030" : doc.impact === "MED" ? "#856404" : "#2D7A4F";
-                const typeLabel   = doc.type === "PRORULE" ? "PROP RULE" : doc.type === "PRESDOCU" ? "EXEC ORDER" : doc.type;
+                const typeLabel = doc.type === "PRORULE" ? "PROP RULE" : doc.type === "PRESDOCU" ? "EXEC ORDER" : doc.type;
                 return (
                   <a key={doc.document_number} href={doc.html_url} target="_blank" rel="noreferrer"
                      style={{ textDecoration: "none" }}>
                     <div className="card p-3" style={{ cursor: "pointer" }}>
                       <div className="flex items-start gap-3">
-                        {/* RBS badge */}
-                        <div style={{ flexShrink: 0, textAlign: "center", minWidth: "52px" }}>
-                          <div className="font-pixel" style={{ background: impactColor, color: "#fff", padding: "2px 4px", fontSize: "0.5rem", marginBottom: "2px" }}>
-                            {doc.impact}
-                          </div>
-                          <div className="font-pixel" style={{ color: impactColor, fontSize: "0.55rem" }}>
-                            {doc.rbs}/100
-                          </div>
+                        {/* RBS score */}
+                        <div style={{ flexShrink: 0, textAlign: "center", minWidth: "44px" }}>
+                          <div className="font-pixel" style={{ color: "var(--accent)", fontSize: "0.7rem", lineHeight: 1 }}>{doc.rbs}</div>
+                          <div className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.45rem" }}>RBS</div>
                         </div>
 
                         {/* Content */}
