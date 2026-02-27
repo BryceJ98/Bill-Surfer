@@ -3,13 +3,16 @@ import { useEffect, useState } from "react";
 import NavBar from "@/components/NavBar";
 import Scoreboard from "@/components/Scoreboard";
 import BodhiChat from "@/components/BodhiChat";
-import { docket as docketApi, reports as reportsApi, type DocketItem, type Report } from "@/lib/api";
+import { docket as docketApi, reports as reportsApi, federalRegister, type DocketItem, type Report, type FrDocument } from "@/lib/api";
 import Link from "next/link";
 
 export default function Dashboard() {
   const [docketItems,   setDocketItems]   = useState<DocketItem[]>([]);
   const [recentReports, setRecentReports] = useState<Report[]>([]);
   const [loadError,     setLoadError]     = useState("");
+  const [frDigest,      setFrDigest]      = useState<FrDocument[] | null>(null);
+  const [frLoading,     setFrLoading]     = useState(true);
+  const [frDate,        setFrDate]        = useState("");
 
   useEffect(() => {
     docketApi.list()
@@ -18,6 +21,10 @@ export default function Dashboard() {
     reportsApi.list()
       .then((r) => setRecentReports(r.slice(0, 5)))
       .catch((e: any) => setLoadError(e.message));
+    federalRegister.digest(undefined, 5)
+      .then((r) => { setFrDigest(r.documents); setFrDate(r.date); })
+      .catch(() => setFrDigest([]))
+      .finally(() => setFrLoading(false));
   }, []);
 
   const STANCE_COLOR: Record<string, string> = {
@@ -133,6 +140,83 @@ export default function Dashboard() {
             }
           </section>
         </div>
+
+        {/* Federal Register Daily Digest */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-pixel text-xs" style={{ color: "var(--accent)" }}>
+              📰 FEDERAL REGISTER DIGEST
+            </h2>
+            <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>
+              {frDate && frDate !== "today" ? frDate : new Date().toLocaleDateString()}
+            </span>
+          </div>
+
+          {frLoading && (
+            <div className="card p-6 flex justify-center">
+              <span className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>● LOADING DIGEST...</span>
+            </div>
+          )}
+
+          {!frLoading && frDigest && frDigest.length === 0 && (
+            <div className="card p-4 text-center">
+              <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }}>
+                No rules or executive orders published today.
+              </p>
+            </div>
+          )}
+
+          {!frLoading && frDigest && frDigest.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {frDigest.map((doc) => {
+                const impactColor = doc.impact === "HIGH" ? "#c53030" : doc.impact === "MED" ? "#856404" : "#2D7A4F";
+                const typeLabel   = doc.type === "PRORULE" ? "PROP RULE" : doc.type === "PRESDOCU" ? "EXEC ORDER" : doc.type;
+                return (
+                  <a key={doc.document_number} href={doc.html_url} target="_blank" rel="noreferrer"
+                     style={{ textDecoration: "none" }}>
+                    <div className="card p-3" style={{ cursor: "pointer" }}>
+                      <div className="flex items-start gap-3">
+                        {/* RBS badge */}
+                        <div style={{ flexShrink: 0, textAlign: "center", minWidth: "52px" }}>
+                          <div className="font-pixel" style={{ background: impactColor, color: "#fff", padding: "2px 4px", fontSize: "0.5rem", marginBottom: "2px" }}>
+                            {doc.impact}
+                          </div>
+                          <div className="font-pixel" style={{ color: impactColor, fontSize: "0.55rem" }}>
+                            {doc.rbs}/100
+                          </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-xs" style={{ marginBottom: "3px", lineHeight: 1.4 }}>
+                            {doc.title.length > 90 ? doc.title.slice(0, 90) + "…" : doc.title}
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-pixel" style={{ background: "var(--primary)", color: "var(--bg)", padding: "1px 5px", fontSize: "0.5rem" }}>
+                              {typeLabel}
+                            </span>
+                            {doc.agency_names?.[0] && (
+                              <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.5rem" }}>
+                                {doc.agency_names[0].length > 40 ? doc.agency_names[0].slice(0, 40) + "…" : doc.agency_names[0]}
+                              </span>
+                            )}
+                            {doc.comment_date && (
+                              <span className="font-pixel" style={{ color: "#856404", fontSize: "0.5rem" }}>
+                                ● COMMENT BY {doc.comment_date}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <span className="font-pixel flex-shrink-0" style={{ color: "var(--accent)", fontSize: "0.55rem" }}>↗</span>
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         {/* Quick actions */}
         <section>
