@@ -23,6 +23,7 @@ Each file in this directory defines an AI guide personality. These definitions a
 |------|------|------|--------|
 | `bodhi.md` | 🏄 Bodhi | Free | Active |
 | `bernhard.md` | ⛷️ Bernhard | Free | Active |
+| `the_judge.md` | 🃏 The Judge | 75 ⬡ | Active |
 
 ## Adding a new personality
 

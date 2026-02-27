@@ -21,6 +21,13 @@ const PERSONAS: Record<PersonalityId, {
     placeholder: "Ask Bernhard...",
     loadingText: "ANALYSING DATA...",
   },
+  the_judge: {
+    emoji:       "🃏",
+    name:        "THE_JUDGE.EXE",
+    intro:       "THE_JUDGE.EXE — I am the Judge. You have come with a question about legislation, which means you have come with a question about power. They are the same question.",
+    placeholder: "State your question...",
+    loadingText: "OBSERVING...",
+  },
 };
 
 export default function BodhiChat() {

@@ -16,10 +16,10 @@ interface PersonalityDef {
 }
 
 const PERSONALITIES: PersonalityDef[] = [
-  { id: "bodhi",    emoji: "🏄", name: "BODHI",    tagline: "Surf vibes. Rides legislative waves.",    cost: 0,   unlocked: true  },
-  { id: "bernhard", emoji: "⛷️", name: "BERNHARD", tagline: "Austrian precision. Cold logic.",          cost: 0,   unlocked: true  },
-  { id: "???",      emoji: "🔒", name: "???",       tagline: "Coming soon...",                          cost: 100, unlocked: false, comingSoon: true },
-  { id: "???2",     emoji: "🔒", name: "???",       tagline: "Coming soon...",                          cost: 250, unlocked: false, comingSoon: true },
+  { id: "bodhi",     emoji: "🏄", name: "BODHI",     tagline: "Surf vibes. Rides legislative waves.",    cost: 0,   unlocked: true  },
+  { id: "bernhard",  emoji: "⛷️", name: "BERNHARD",  tagline: "Austrian precision. Cold logic.",          cost: 0,   unlocked: true  },
+  { id: "the_judge", emoji: "🃏", name: "THE JUDGE",  tagline: "Power is god. Read the law as it is.",   cost: 75,  unlocked: true  },
+  { id: "???",       emoji: "🔒", name: "???",        tagline: "Coming soon...",                          cost: 250, unlocked: false, comingSoon: true },
 ];
 
 const PROVIDERS = [

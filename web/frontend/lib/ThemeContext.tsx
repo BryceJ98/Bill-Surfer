@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
 
-export type PersonalityId = "bodhi" | "bernhard";
+export type PersonalityId = "bodhi" | "bernhard" | "the_judge";
 
 interface ThemeCtx {
   ski:           boolean;
@@ -26,7 +26,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.add("dark");
     }
     const saved = localStorage.getItem("active_personality") as PersonalityId | null;
-    if (saved === "bodhi" || saved === "bernhard") setPersonalityState(saved);
+    if (saved === "bodhi" || saved === "bernhard" || saved === "the_judge") setPersonalityState(saved);
   }, []);
 
   function toggle() {

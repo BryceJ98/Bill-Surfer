@@ -42,6 +42,19 @@ def memory_system_prefix(user_id: str) -> str:
     return f"[USER MEMORY FROM PREVIOUS SESSIONS]\n{summary}\n\n"
 
 
+def personality_system_prefix(user_id: str) -> str:
+    """Returns the personality system prompt prefix for the user, or the Bodhi default."""
+    try:
+        from app.tools.personalities import get_personality_prompt
+        db = get_db()
+        s = db.table("user_settings").select("active_personality").eq("user_id", user_id).execute()
+        active = s.data[0].get("active_personality") if s.data else None
+        return get_personality_prompt(active) + "\n\n"
+    except Exception:
+        from app.tools.personalities import get_personality_prompt
+        return get_personality_prompt(None) + "\n\n"
+
+
 def log_api_usage(user_id: str, provider: str, calls: int = 1, tokens: int = 0) -> None:
     """Best-effort usage logging. Never raises, never blocks the calling request."""
     try:

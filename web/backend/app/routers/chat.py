@@ -11,7 +11,7 @@ from pydantic import BaseModel
 import litellm
 
 from app.auth import get_current_user
-from app.db import get_db, log_api_usage, memory_system_prefix
+from app.db import get_db, log_api_usage, memory_system_prefix, personality_system_prefix
 from app.routers.keys import get_user_key
 from app.routers.memory import fire_memory_update
 from app.tools import congress_client as cc
@@ -387,12 +387,14 @@ def chat(body: ChatRequest, user=Depends(get_current_user)):
     congress_key = get_user_key(user_id, "congress")
     legiscan_key = get_user_key(user_id, "legiscan")
 
-    mem_prefix = memory_system_prefix(user_id)
+    mem_prefix  = memory_system_prefix(user_id)
+    pers_prefix = personality_system_prefix(user_id)
 
     messages = [
         {
             "role": "system",
             "content": (
+                pers_prefix +
                 mem_prefix +
                 "You are a nonpartisan legislative research assistant for political science researchers. "
                 "You have access to real-time legislative data AND the ability to manage the user's docket and generate reports.\n\n"

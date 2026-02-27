@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.auth import get_current_user
-from app.db import get_db, log_api_usage, memory_system_prefix
+from app.db import get_db, log_api_usage, memory_system_prefix, personality_system_prefix
 from app.routers.keys import get_user_key
 from app.routers.memory import fire_memory_update
 from app.tools import congress_client as cc
@@ -170,7 +170,8 @@ def track_topic(body: TrackRequest, user=Depends(get_current_user)):
 
     context = "\n".join(context_lines)
 
-    mem_prefix = memory_system_prefix(user_id)
+    mem_prefix  = memory_system_prefix(user_id)
+    pers_prefix = personality_system_prefix(user_id)
 
     ai_summary = ""
     try:
@@ -178,7 +179,7 @@ def track_topic(body: TrackRequest, user=Depends(get_current_user)):
             model=ai_model,
             api_key=ai_key,
             messages=[
-                {"role": "system", "content": mem_prefix + _TRACK_SYSTEM},
+                {"role": "system", "content": pers_prefix + mem_prefix + _TRACK_SYSTEM},
                 {"role": "user",   "content": f"Analyze the following legislation on '{body.topic}':\n\n{context}"},
             ],
             timeout=60,
