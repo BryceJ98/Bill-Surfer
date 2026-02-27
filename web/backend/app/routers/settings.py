@@ -13,12 +13,13 @@ router = APIRouter()
 
 
 class SettingsUpdate(BaseModel):
-    display_name:    str | None = None
-    institution:     str | None = None
-    research_areas:  list[str] | None = None
-    ai_provider:     str | None = None
-    ai_model:        str | None = None
-    memory_enabled:  bool | None = None
+    display_name:       str | None = None
+    institution:        str | None = None
+    research_areas:     list[str] | None = None
+    ai_provider:        str | None = None
+    ai_model:           str | None = None
+    memory_enabled:     bool | None = None
+    active_personality: str | None = None
 
 
 AI_MODELS = {
@@ -114,6 +115,14 @@ def get_scoreboard(user=Depends(get_current_user)):
         .execute()
     )
 
+    # Productivity score: bills×10 + reports×25 + AI calls×2 (capped 100)
+    total_ai_calls = sum(r.get("call_count", 0) for r in (usage_rows.data or []))
+    productivity_score = (
+        docket_count * 10
+        + reports_total * 25
+        + min(total_ai_calls * 2, 100)
+    )
+
     return {
         "docket_count":        docket_count,
         "reports_total":       reports_total,
@@ -122,4 +131,5 @@ def get_scoreboard(user=Depends(get_current_user)):
         "ai_provider":         ai_provider,
         "date":                today,
         "usage":               usage_rows.data or [],
+        "productivity_score":  productivity_score,
     }

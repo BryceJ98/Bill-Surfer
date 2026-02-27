@@ -218,8 +218,8 @@ export const csvImport = {
 
 // ── Types ─────────────────────────────────────────────────────────────────
 export interface KeyStatus      { provider: string; stored: boolean; masked?: string }
-export interface UserSettings   { user_id?: string; display_name?: string; institution?: string; research_areas?: string[]; ai_provider: string; ai_model: string; memory_enabled?: boolean }
-export interface Scoreboard     { docket_count: number; reports_total: number; reports_today: number; ai_model: string; ai_provider: string; date: string; usage: { provider: string; call_count: number; token_count: number }[] }
+export interface UserSettings   { user_id?: string; display_name?: string; institution?: string; research_areas?: string[]; ai_provider: string; ai_model: string; memory_enabled?: boolean; active_personality?: string }
+export interface Scoreboard     { docket_count: number; reports_total: number; reports_today: number; ai_model: string; ai_provider: string; date: string; usage: { provider: string; call_count: number; token_count: number }[]; productivity_score: number }
 export interface DocketItem     { id: string; bill_id: string; bill_number?: string; state: string; title?: string; stance?: string; priority?: string; notes?: string; tags: string[]; added_date: string }
 export interface DocketItemIn   { bill_id: string; bill_number?: string; state: string; title?: string; stance?: string; priority?: string; notes?: string; tags?: string[] }
 export interface Report         { id: string; bill_id: string; bill_number: string; state: string; title: string; report_type: string; ai_model?: string; status: string; is_public: boolean; created_at: string; content_json?: any; error_message?: string }

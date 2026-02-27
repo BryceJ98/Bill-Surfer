@@ -1,29 +1,48 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { chat as chatApi, type ChatMessage } from "@/lib/api";
-import { useTheme } from "@/lib/ThemeContext";
+import { useTheme, type PersonalityId } from "@/lib/ThemeContext";
 
-const BODHI_INTRO  = "BODHI_GUIDE.EXE — Ready to shred some legislation.";
-const BERNHARD_INTRO = "BERNHARD_GUIDE.EXE — Guten Tag. I am here to help you navigate the law. Precisely.";
+const PERSONAS: Record<PersonalityId, {
+  emoji: string; name: string; intro: string;
+  placeholder: string; loadingText: string;
+}> = {
+  bodhi: {
+    emoji:       "🏄",
+    name:        "BODHI_GUIDE.EXE",
+    intro:       "BODHI_GUIDE.EXE — Ready to shred some legislation.",
+    placeholder: "Ask Bodhi anything...",
+    loadingText: "SHREDDING DATA...",
+  },
+  bernhard: {
+    emoji:       "⛷️",
+    name:        "BERNHARD_GUIDE.EXE",
+    intro:       "BERNHARD_GUIDE.EXE — Guten Tag. I am here to help you navigate the law. Precisely.",
+    placeholder: "Ask Bernhard...",
+    loadingText: "ANALYSING DATA...",
+  },
+};
 
 export default function BodhiChat() {
-  const { ski } = useTheme();
+  const { ski, personality } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input,    setInput]    = useState("");
   const [loading,  setLoading]  = useState(false);
   const [open,     setOpen]     = useState(false);
   const bottomRef  = useRef<HTMLDivElement>(null);
 
-  // Reset intro when mode switches
+  const persona = PERSONAS[personality];
+
+  // Reset chat when personality changes
   useEffect(() => {
     setMessages([]);
-  }, [ski]);
+  }, [personality]);
 
   useEffect(() => {
     if (open && messages.length === 0) {
-      setMessages([{ role: "assistant", content: ski ? BERNHARD_INTRO : BODHI_INTRO }]);
+      setMessages([{ role: "assistant", content: persona.intro }]);
     }
-  }, [open, ski]);
+  }, [open, personality]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -44,11 +63,6 @@ export default function BodhiChat() {
     setLoading(false);
   }
 
-  const guideEmoji  = ski ? "⛷️" : "🏄";
-  const guideName   = ski ? "BERNHARD_GUIDE.EXE" : "BODHI_GUIDE.EXE";
-  const placeholder = ski ? "Ask Bernhard..." : "Ask Bodhi anything...";
-  const loadingText = ski ? "ANALYSING DATA..." : "SHREDDING DATA...";
-
   return (
     <>
       {/* Floating toggle button */}
@@ -59,11 +73,10 @@ export default function BodhiChat() {
           background: "var(--accent)",
           border:     "3px solid var(--border)",
           boxShadow:  "4px 4px 0 var(--border)",
-          animation:  ski ? "none" : undefined,
         }}
-        title={ski ? "Chat with Bernhard" : "Chat with Bodhi"}
+        title={`Chat with ${persona.name}`}
       >
-        {open ? "✕" : guideEmoji}
+        {open ? "✕" : persona.emoji}
       </button>
 
       {/* Chat panel */}
@@ -81,9 +94,9 @@ export default function BodhiChat() {
           {/* Header */}
           <div className="flex items-center gap-2 px-3 py-2"
                style={{ background: "var(--primary)", borderBottom: "3px solid var(--border)" }}>
-            <span className="text-lg">{guideEmoji}</span>
+            <span className="text-lg">{persona.emoji}</span>
             <span className="font-pixel text-xs" style={{ color: ski ? "var(--border)" : "var(--bg)" }}>
-              {guideName}
+              {persona.name}
             </span>
             <span className="font-pixel text-xs ml-auto animate-blink"
                   style={{ color: "var(--accent-lt, #F7894E)" }}>●LIVE</span>
@@ -104,7 +117,7 @@ export default function BodhiChat() {
               <div key={i}
                    className={`flex gap-2 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
                 <span className="text-xl flex-shrink-0">
-                  {m.role === "user" ? "👤" : guideEmoji}
+                  {m.role === "user" ? "👤" : persona.emoji}
                 </span>
                 <div className="p-2 max-w-[80%]"
                      style={{
@@ -119,10 +132,10 @@ export default function BodhiChat() {
             ))}
             {loading && (
               <div className="flex gap-2">
-                <span className="text-xl">{guideEmoji}</span>
+                <span className="text-xl">{persona.emoji}</span>
                 <div className="p-2" style={{ border: "2px solid var(--border)", background: "var(--bg)" }}>
                   <p className="font-pixel text-xs animate-pulse" style={{ color: "var(--accent)" }}>
-                    {loadingText}
+                    {persona.loadingText}
                   </p>
                 </div>
               </div>
@@ -135,7 +148,7 @@ export default function BodhiChat() {
             <input
               className="flex-1 input-arcade"
               style={{ border: "none" }}
-              placeholder={placeholder}
+              placeholder={persona.placeholder}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}

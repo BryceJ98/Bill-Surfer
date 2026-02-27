@@ -3,6 +3,24 @@ import { useEffect, useState } from "react";
 import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
 import { keys as keysApi, settings as settingsApi, memory as memoryApi, type KeyStatus, type UserSettings, type MemoryState } from "@/lib/api";
+import { useTheme, type PersonalityId } from "@/lib/ThemeContext";
+
+interface PersonalityDef {
+  id:       PersonalityId | string;
+  emoji:    string;
+  name:     string;
+  tagline:  string;
+  cost:     number;
+  unlocked: boolean;
+  comingSoon?: boolean;
+}
+
+const PERSONALITIES: PersonalityDef[] = [
+  { id: "bodhi",    emoji: "🏄", name: "BODHI",    tagline: "Surf vibes. Rides legislative waves.",    cost: 0,   unlocked: true  },
+  { id: "bernhard", emoji: "⛷️", name: "BERNHARD", tagline: "Austrian precision. Cold logic.",          cost: 0,   unlocked: true  },
+  { id: "???",      emoji: "🔒", name: "???",       tagline: "Coming soon...",                          cost: 100, unlocked: false, comingSoon: true },
+  { id: "???2",     emoji: "🔒", name: "???",       tagline: "Coming soon...",                          cost: 250, unlocked: false, comingSoon: true },
+];
 
 const PROVIDERS = [
   { id: "legiscan",  label: "LEGISCAN",   url: "https://legiscan.com/legiscan",      icon: "📋", desc: "State bills — all 50 states" },
@@ -27,6 +45,8 @@ const AI_MODELS: Record<string, string[]> = {
 };
 
 export default function SettingsPage() {
+  const { personality, setPersonality } = useTheme();
+  const [bullpenOpen, setBullpenOpen] = useState(false);
   const [storedKeys, setStoredKeys]   = useState<KeyStatus[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [inputKeys, setInputKeys]     = useState<Record<string, string>>({});
@@ -132,6 +152,95 @@ export default function SettingsPage() {
       <main className="max-w-3xl mx-auto p-6 flex flex-col gap-8">
 
         <h1 className="font-pixel text-sm" style={{ color: "var(--accent)" }}>⚙️ SETTINGS</h1>
+
+        {/* Personalities */}
+        <section className="card p-5 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-pixel text-xs" style={{ color: "var(--accent)" }}>🎭 PERSONALITIES</p>
+              <p className="font-pixel mt-1" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>
+                ACTIVE: {PERSONALITIES.find(p => p.id === personality)?.emoji ?? "🏄"}&nbsp;
+                {PERSONALITIES.find(p => p.id === personality)?.name ?? "BODHI"}
+              </p>
+            </div>
+            <button
+              onClick={() => setBullpenOpen(o => !o)}
+              className="btn-arcade font-pixel text-xs px-4"
+              style={{ fontSize: "0.65rem" }}>
+              {bullpenOpen ? "▲ CLOSE" : "▶ OPEN BULLPEN"}
+            </button>
+          </div>
+
+          {bullpenOpen && (
+            <div className="flex flex-col gap-3 pt-2"
+                 style={{ borderTop: "2px dashed var(--border)" }}>
+              <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>
+                Select your AI guide. Earn ⬡ Activity Coins by using the site. Spend them to unlock new personalities.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {PERSONALITIES.map((p) => {
+                  const isActive  = personality === p.id;
+                  const canUnlock = p.unlocked;
+                  return (
+                    <div key={p.id} className="card p-4 flex flex-col items-center gap-2 text-center"
+                         style={{
+                           borderColor: isActive ? "var(--accent)" : "var(--border)",
+                           boxShadow:   isActive ? "4px 4px 0 var(--accent)" : undefined,
+                           opacity:     p.comingSoon ? 0.5 : 1,
+                         }}>
+                      <span style={{ fontSize: "2rem" }}>{p.emoji}</span>
+                      <span className="font-pixel text-xs" style={{ color: isActive ? "var(--accent)" : "var(--text)" }}>
+                        {p.name}
+                      </span>
+                      <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.5rem" }}>
+                        {p.tagline}
+                      </p>
+
+                      {/* Cost badge */}
+                      <span className="font-pixel px-2 py-0"
+                            style={{
+                              background: p.cost === 0 ? "#2D7A4F" : "var(--primary)",
+                              color:      p.cost === 0 ? "#fff"    : "var(--bg)",
+                              border:     "2px solid var(--border)",
+                              fontSize:   "0.5rem",
+                            }}>
+                        {p.cost === 0 ? "FREE" : `⬡ ${p.cost}`}
+                      </span>
+
+                      {/* Action button */}
+                      {p.comingSoon ? (
+                        <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.5rem" }}>
+                          COMING SOON
+                        </span>
+                      ) : isActive ? (
+                        <span className="font-pixel px-3 py-1"
+                              style={{ background: "var(--accent)", color: "var(--bg)",
+                                border: "2px solid var(--border)", fontSize: "0.55rem" }}>
+                          ● ACTIVE
+                        </span>
+                      ) : canUnlock ? (
+                        <button
+                          onClick={() => setPersonality(p.id as PersonalityId)}
+                          className="btn-arcade-outline font-pixel text-xs px-3 py-1"
+                          style={{ fontSize: "0.55rem" }}>
+                          ▶ SELECT
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          className="font-pixel text-xs px-3 py-1"
+                          style={{ border: "2px solid var(--border)", color: "var(--text-muted)",
+                            fontSize: "0.55rem", opacity: 0.5, cursor: "not-allowed" }}>
+                          🔒 UNLOCK
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Profile */}
         <section className="card p-5 flex flex-col gap-4">
