@@ -179,8 +179,8 @@ export const track = {
 export const federalRegister = {
   digest: (date?: string, limit = 10) =>
     request<FrDigestResult>(`/federal-register/digest${date ? `?date=${date}&limit=${limit}` : `?limit=${limit}`}`),
-  search: (q: string, limit = 10) =>
-    request<FrSearchResult>(`/federal-register/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  search: (q: string, limit = 20, year?: number, page = 1) =>
+    request<FrSearchResult>(`/federal-register/search?q=${encodeURIComponent(q)}&limit=${limit}&page=${page}${year ? `&year=${year}` : ""}`),
 };
 
 // ── Memory ────────────────────────────────────────────────────────────────
@@ -241,7 +241,7 @@ export interface TrackRequest   {
 }
 export interface FrDocument        { document_number: string; title: string; type: string; abstract?: string; agency_names?: string[]; publication_date: string; html_url: string; significant?: boolean; comment_url?: string; effective_on?: string; comments_close_on?: string; rbs: number }
 export interface FrDigestResult    { date: string; count: number; documents: FrDocument[] }
-export interface FrSearchResult    { query: string; count: number; documents: FrDocument[] }
+export interface FrSearchResult    { query: string; count: number; total_pages: number; documents: FrDocument[] }
 export interface MemoryState       { enabled: boolean; summary: string; updated_at: string | null }
 export interface CsvUploadResult  { mode: "bill" | "generic"; columns: string[]; row_count: number; rows: Record<string, string>[]; raw_csv: string }
 export interface BulkDocketRow    { bill_id: string; bill_number?: string; state: string; title?: string; notes?: string; tags?: string[] }

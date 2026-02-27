@@ -68,6 +68,9 @@ export default function SearchPage() {
   // Federal Register search state
   const [frResults,     setFrResults]     = useState<FrDocument[]>([]);
   const [frTotal,       setFrTotal]       = useState(0);
+  const [frTotalPages,  setFrTotalPages]  = useState(0);
+  const [frPage,        setFrPage]        = useState(1);
+  const [frYear,        setFrYear]        = useState<number | "">("");
   const [frLoading,     setFrLoading]     = useState(false);
   const [frError,       setFrError]       = useState("");
 
@@ -81,6 +84,8 @@ export default function SearchPage() {
     setAgentError("");
     setFrResults([]);
     setFrTotal(0);
+    setFrTotalPages(0);
+    setFrPage(1);
     setFrError("");
   }
 
@@ -114,13 +119,17 @@ export default function SearchPage() {
     setLoading(false);
   }
 
-  async function doFrSearch() {
+  async function doFrSearch(pageNum = 1) {
     if (!query.trim() || frLoading) return;
-    setFrError(""); setFrLoading(true); setFrResults([]);
+    setFrError(""); setFrLoading(true);
+    if (pageNum === 1) setFrResults([]);
     try {
-      const data = await federalRegister.search(query.trim(), 20);
+      const yr   = frYear !== "" ? Number(frYear) : undefined;
+      const data = await federalRegister.search(query.trim(), 20, yr, pageNum);
       setFrResults(data.documents);
       setFrTotal(data.count);
+      setFrTotalPages(data.total_pages);
+      setFrPage(pageNum);
     } catch (e: any) { setFrError(e.message); }
     setFrLoading(false);
   }
@@ -401,16 +410,24 @@ export default function SearchPage() {
           <div className="flex flex-col gap-4">
             <div className="card p-4 flex flex-col gap-3">
               <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }}>
-                SEARCH RULES, PROPOSED RULES &amp; EXECUTIVE ORDERS
+                SEARCH RULES, PROPOSED RULES &amp; EXECUTIVE ORDERS — SORTED BY MOST RECENT
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <input className="input-arcade flex-1"
                        placeholder="e.g. EPA emissions, FDA food safety, tariffs..."
                        value={query}
                        onChange={(e) => setQuery(e.target.value)}
-                       onKeyDown={(e) => { if (e.key === "Enter") doFrSearch(); }} />
+                       onKeyDown={(e) => { if (e.key === "Enter") doFrSearch(1); }} />
+                <select className="input-arcade" style={{ width: "auto", minWidth: "8rem" }}
+                        value={frYear}
+                        onChange={(e) => setFrYear(e.target.value ? Number(e.target.value) : "")}>
+                  <option value="">All Years</option>
+                  {Array.from({ length: 2026 - 1994 + 1 }, (_, i) => 2026 - i).map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
                 <button className="btn-arcade font-pixel text-xs px-4"
-                        onClick={doFrSearch} disabled={frLoading || !query.trim()}>
+                        onClick={() => doFrSearch(1)} disabled={frLoading || !query.trim()}>
                   {frLoading ? "SEARCHING..." : "▶ SEARCH"}
                 </button>
               </div>
@@ -419,9 +436,30 @@ export default function SearchPage() {
 
             {frResults.length > 0 && (
               <div className="flex flex-col gap-2">
-                <p className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>
-                  {frResults.length} OF {frTotal} RESULTS — SORTED BY REGULATORY BURDEN SCORE
-                </p>
+                {/* Count + pagination header */}
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <p className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>
+                    {frTotal.toLocaleString()} RESULTS
+                    {frTotalPages > 1 && ` — PAGE ${frPage} / ${frTotalPages}`}
+                    {frYear !== "" && ` — ${frYear}`}
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={() => doFrSearch(frPage - 1)} disabled={frPage <= 1 || frLoading}
+                            className="font-pixel text-xs px-3 py-1"
+                            style={{ border: "2px solid var(--border)",
+                              color: frPage > 1 ? "var(--text)" : "var(--text-muted)",
+                              opacity: frPage > 1 ? 1 : 0.4 }}>
+                      ◀ PREV
+                    </button>
+                    <button onClick={() => doFrSearch(frPage + 1)} disabled={frPage >= frTotalPages || frLoading}
+                            className="font-pixel text-xs px-3 py-1"
+                            style={{ border: "2px solid var(--border)",
+                              color: frPage < frTotalPages ? "var(--text)" : "var(--text-muted)",
+                              opacity: frPage < frTotalPages ? 1 : 0.4 }}>
+                      NEXT ▶
+                    </button>
+                  </div>
+                </div>
                 {frResults.map((doc) => {
                   const typeLabel = doc.type === "PRORULE" ? "PROP RULE" : doc.type === "PRESDOCU" ? "EXEC ORDER" : doc.type;
                   return (
@@ -471,6 +509,25 @@ export default function SearchPage() {
                     </a>
                   );
                 })}
+
+                {/* Bottom pagination */}
+                {frTotalPages > 1 && (
+                  <div className="flex items-center justify-center gap-3 pt-2">
+                    <button onClick={() => doFrSearch(frPage - 1)} disabled={frPage <= 1 || frLoading}
+                            className="btn-arcade font-pixel text-xs"
+                            style={{ opacity: frPage > 1 ? 1 : 0.4 }}>
+                      ◀ PREV PAGE
+                    </button>
+                    <span className="font-pixel text-xs" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }}>
+                      {frPage} / {frTotalPages}
+                    </span>
+                    <button onClick={() => doFrSearch(frPage + 1)} disabled={frPage >= frTotalPages || frLoading}
+                            className="btn-arcade font-pixel text-xs"
+                            style={{ opacity: frPage < frTotalPages ? 1 : 0.4 }}>
+                      NEXT PAGE ▶
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

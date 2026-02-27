@@ -66,19 +66,33 @@ def get_daily_digest(date: str | None = None, limit: int = 20) -> list[dict]:
     return sorted([_enrich(d) for d in docs], key=lambda x: x["rbs"], reverse=True)
 
 
-def search_documents(keyword: str, doc_types: list[str] | None = None, limit: int = 20) -> list[dict]:
+def search_documents(
+    keyword: str,
+    doc_types: list[str] | None = None,
+    limit: int = 20,
+    year: int | None = None,
+    page: int = 1,
+) -> dict:
     """
     Search FR documents by keyword, newest first, with RBS scores.
-    doc_types defaults to Rules, Proposed Rules, Executive Orders.
+    Returns {"count", "total_pages", "documents"}.
     """
-    params = {
+    params: dict = {
         "conditions[term]":   keyword,
         "conditions[type][]": doc_types or ["RULE", "PRORULE", "PRESDOCU"],
         "sort":               "newest",
         "per_page":           limit,
+        "page":               page,
         "fields[]":           _FIELDS,
     }
+    if year:
+        params["conditions[publication_date][year]"] = year
     resp = requests.get(f"{BASE}/documents.json", params=params, timeout=15)
     resp.raise_for_status()
-    docs = resp.json().get("results", [])
-    return sorted([_enrich(d) for d in docs], key=lambda x: x["rbs"], reverse=True)
+    data = resp.json()
+    docs = [_enrich(d) for d in data.get("results", [])]
+    return {
+        "count":       data.get("count", 0),
+        "total_pages": data.get("total_pages", 1),
+        "documents":   docs,
+    }

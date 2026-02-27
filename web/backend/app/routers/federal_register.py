@@ -35,15 +35,13 @@ def daily_digest(
 def search(
     q:          str            = Query(..., description="Search keyword"),
     doc_types:  list[str]      = Query(default=["RULE", "PRORULE", "PRESDOCU"]),
-    limit:      int            = Query(default=10, ge=1, le=50),
+    limit:      int            = Query(default=20, ge=1, le=50),
+    year:       int | None     = Query(default=None, description="Filter by publication year"),
+    page:       int            = Query(default=1,  ge=1),
     user=Depends(get_current_user),
 ):
     try:
-        docs = fr.search_documents(keyword=q, doc_types=doc_types, limit=limit)
-        return {
-            "query":     q,
-            "count":     len(docs),
-            "documents": docs,
-        }
+        result = fr.search_documents(keyword=q, doc_types=doc_types, limit=limit, year=year, page=page)
+        return {"query": q, **result}
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Federal Register API error: {exc}")
