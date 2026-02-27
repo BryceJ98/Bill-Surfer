@@ -2,9 +2,9 @@
 import { useState } from "react";
 import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
-import { search as searchApi, docket as docketApi, exportCsv, explain as explainApi, type ExplainResult } from "@/lib/api";
+import { search as searchApi, docket as docketApi, exportCsv, explain as explainApi, federalRegister, type ExplainResult, type FrDocument } from "@/lib/api";
 
-type SearchType = "federal-bills" | "nominations" | "treaties" | "state-bills" | "agent";
+type SearchType = "federal-bills" | "nominations" | "treaties" | "state-bills" | "agent" | "federal-register";
 
 const PAGE_SIZE = 20;
 const CURRENT_CONGRESS = 119;
@@ -13,11 +13,12 @@ const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL"
 
 // Valid congress ranges based on Congress.gov data availability
 const CONGRESS_RANGE: Record<SearchType, { min: number } | null> = {
-  "federal-bills": { min: 93  },   // Congress.gov bills: 93rd (1973) onward
-  "nominations":   { min: 100 },   // nominations: 100th (1987) onward
-  "treaties":      { min: 90  },   // treaties: 90th (1967) onward
-  "state-bills":   null,           // uses year filter, not congress
-  "agent":         null,           // AI agent — no congress filter
+  "federal-bills":     { min: 93  },   // Congress.gov bills: 93rd (1973) onward
+  "nominations":       { min: 100 },   // nominations: 100th (1987) onward
+  "treaties":          { min: 90  },   // treaties: 90th (1967) onward
+  "state-bills":       null,           // uses year filter, not congress
+  "agent":             null,           // AI agent — no congress filter
+  "federal-register":  null,           // keyword only, no congress
 };
 
 function ordinal(n: number): string {
@@ -36,11 +37,12 @@ function congressLabel(n: number): string {
 }
 
 const PLACEHOLDERS: Record<SearchType, string> = {
-  "federal-bills": "e.g. infrastructure, healthcare...",
-  "nominations":   "e.g. secretary, ambassador, judge...",
-  "treaties":      "e.g. Japan, trade, extradition, defense... (optional)",
-  "state-bills":   "e.g. minimum wage, climate, education...",
-  "agent":         "",  // agent has its own input
+  "federal-bills":    "e.g. infrastructure, healthcare...",
+  "nominations":      "e.g. secretary, ambassador, judge...",
+  "treaties":         "e.g. Japan, trade, extradition, defense... (optional)",
+  "state-bills":      "e.g. minimum wage, climate, education...",
+  "agent":            "",  // agent has its own input
+  "federal-register": "e.g. EPA emissions, FDA food safety, immigration...",
 };
 
 export default function SearchPage() {
@@ -63,6 +65,11 @@ export default function SearchPage() {
   // Plain-English explain state
   const [explaining,    setExplaining]    = useState<Set<string>>(new Set());
   const [explanations,  setExplanations]  = useState<Map<string, ExplainResult>>(new Map());
+  // Federal Register search state
+  const [frResults,     setFrResults]     = useState<FrDocument[]>([]);
+  const [frTotal,       setFrTotal]       = useState(0);
+  const [frLoading,     setFrLoading]     = useState(false);
+  const [frError,       setFrError]       = useState("");
 
   function switchTab(t: SearchType) {
     setSearchType(t);
@@ -72,6 +79,9 @@ export default function SearchPage() {
     setError("");
     setExportError("");
     setAgentError("");
+    setFrResults([]);
+    setFrTotal(0);
+    setFrError("");
   }
 
   async function doAgentSearch() {
@@ -85,6 +95,7 @@ export default function SearchPage() {
   }
 
   async function doSearch(pageNum = 0) {
+    if (searchType === "federal-register") { doFrSearch(); return; }
     setError(""); setLoading(true); setResults([]);
     try {
       let data: any;
@@ -101,6 +112,17 @@ export default function SearchPage() {
       setPage(pageNum);
     } catch (e: any) { setError(e.message); }
     setLoading(false);
+  }
+
+  async function doFrSearch() {
+    if (!query.trim() || frLoading) return;
+    setFrError(""); setFrLoading(true); setFrResults([]);
+    try {
+      const data = await federalRegister.search(query.trim(), 20);
+      setFrResults(data.documents);
+      setFrTotal(data.count);
+    } catch (e: any) { setFrError(e.message); }
+    setFrLoading(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -203,6 +225,19 @@ export default function SearchPage() {
               {searchType === t ? "▶ " : ""}{t.toUpperCase().replace(/-/g," ")}
             </button>
           ))}
+          {/* Federal Register tab */}
+          <button onClick={() => switchTab("federal-register")}
+                  className="font-pixel text-xs px-3 py-2"
+                  style={{
+                    border:     "3px solid",
+                    borderColor: searchType === "federal-register" ? "var(--accent)" : "var(--border)",
+                    background:  searchType === "federal-register" ? "var(--accent)" : "transparent",
+                    color:       searchType === "federal-register" ? "var(--bg)"     : "var(--text)",
+                    boxShadow:   searchType === "federal-register" ? "3px 3px 0 var(--border)" : "none",
+                    fontSize: "0.65rem",
+                  }}>
+            {searchType === "federal-register" ? "▶ " : ""}📰 FED REGISTER
+          </button>
           {/* AI Search tab — distinct style */}
           <button onClick={() => switchTab("agent")}
                   className="font-pixel text-xs px-3 py-2"
@@ -361,8 +396,88 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* Regular search form — hidden on agent tab */}
-        {searchType !== "agent" && <div className="card p-4 flex flex-col gap-3">
+        {/* ── Federal Register search UI ──────────────────────────── */}
+        {searchType === "federal-register" && (
+          <div className="flex flex-col gap-4">
+            <div className="card p-4 flex flex-col gap-3">
+              <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }}>
+                SEARCH RULES, PROPOSED RULES &amp; EXECUTIVE ORDERS
+              </p>
+              <div className="flex gap-2">
+                <input className="input-arcade flex-1"
+                       placeholder="e.g. EPA emissions, FDA food safety, tariffs..."
+                       value={query}
+                       onChange={(e) => setQuery(e.target.value)}
+                       onKeyDown={(e) => { if (e.key === "Enter") doFrSearch(); }} />
+                <button className="btn-arcade font-pixel text-xs px-4"
+                        onClick={doFrSearch} disabled={frLoading || !query.trim()}>
+                  {frLoading ? "SEARCHING..." : "▶ SEARCH"}
+                </button>
+              </div>
+              {frError && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ {frError}</p>}
+            </div>
+
+            {frResults.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="font-pixel text-xs" style={{ color: "var(--text-muted)" }}>
+                  {frResults.length} OF {frTotal} RESULTS — SORTED BY REGULATORY BURDEN SCORE
+                </p>
+                {frResults.map((doc) => {
+                  const typeLabel = doc.type === "PRORULE" ? "PROP RULE" : doc.type === "PRESDOCU" ? "EXEC ORDER" : doc.type;
+                  return (
+                    <a key={doc.document_number} href={doc.html_url} target="_blank" rel="noreferrer"
+                       style={{ textDecoration: "none" }}>
+                      <div className="card p-4" style={{ cursor: "pointer" }}>
+                        <div className="flex items-start gap-3">
+                          {/* RBS score */}
+                          <div style={{ flexShrink: 0, textAlign: "center", minWidth: "44px" }}>
+                            <div className="font-pixel" style={{ color: "var(--accent)", fontSize: "0.85rem", lineHeight: 1 }}>{doc.rbs}</div>
+                            <div className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.45rem" }}>RBS</div>
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-sm leading-snug" style={{ marginBottom: "4px" }}>
+                              {doc.title}
+                            </p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-pixel" style={{ background: "var(--primary)", color: "var(--bg)", padding: "1px 5px", fontSize: "0.5rem" }}>
+                                {typeLabel}
+                              </span>
+                              {doc.agency_names?.[0] && (
+                                <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.5rem" }}>
+                                  {doc.agency_names[0]}
+                                </span>
+                              )}
+                              <span className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.5rem" }}>
+                                {doc.publication_date}
+                              </span>
+                              {doc.comment_date && (
+                                <span className="font-pixel" style={{ color: "#856404", fontSize: "0.5rem" }}>
+                                  ● COMMENT BY {doc.comment_date}
+                                </span>
+                              )}
+                            </div>
+                            {doc.abstract && (
+                              <p className="font-mono text-xs mt-2" style={{ color: "var(--text-muted)", lineHeight: 1.4 }}>
+                                {doc.abstract.slice(0, 200)}{doc.abstract.length > 200 ? "…" : ""}
+                              </p>
+                            )}
+                          </div>
+
+                          <span className="font-pixel flex-shrink-0" style={{ color: "var(--accent)", fontSize: "0.6rem" }}>↗</span>
+                        </div>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Regular search form — hidden on agent + FR tabs */}
+        {searchType !== "agent" && searchType !== "federal-register" && <div className="card p-4 flex flex-col gap-3">
           <div className="flex gap-2 flex-wrap">
             {/* Keyword input — always shown; optional for treaties */}
             <input className="input-arcade flex-1"
@@ -412,8 +527,8 @@ export default function SearchPage() {
           {exportError && <p className="font-pixel text-xs" style={{ color: "#c53030" }}>⚠ Export failed: {exportError}</p>}
         </div>}
 
-        {/* Results — hidden on agent tab */}
-        {searchType !== "agent" && results.length > 0 && (
+        {/* Results — hidden on agent + FR tabs */}
+        {searchType !== "agent" && searchType !== "federal-register" && results.length > 0 && (
           <div className="flex flex-col gap-2">
             {/* Count + pagination */}
             <div className="flex items-center justify-between flex-wrap gap-2">

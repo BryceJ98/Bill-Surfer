@@ -7,13 +7,9 @@ import BodhiChat from "@/components/BodhiChat";
 import { docket as docketApi, exportCsv, type DocketItem } from "@/lib/api";
 
 const STANCES  = ["support","oppose","neutral","watching"] as const;
-const PRIORITIES = ["high","medium","low"] as const;
 
 const STANCE_COLOR: Record<string, string> = {
   support: "#2D7A4F", oppose: "#c53030", neutral: "#888", watching: "#1A6BA0",
-};
-const PRIORITY_COLOR: Record<string, string> = {
-  high: "#c53030", medium: "#856404", low: "#2D7A4F",
 };
 
 export default function DocketPage() {
@@ -32,11 +28,11 @@ export default function DocketPage() {
   }
   useEffect(load, []);
 
-  const filtered = filter === "all" ? items : items.filter((i) => i.stance === filter || i.priority === filter);
+  const filtered = filter === "all" ? items : items.filter((i) => i.stance === filter);
 
   function startEdit(item: DocketItem) {
     setEditing(item.id);
-    setEditData({ stance: item.stance, priority: item.priority, notes: item.notes ?? "", tags: item.tags });
+    setEditData({ stance: item.stance, notes: item.notes ?? "", tags: item.tags });
   }
 
   async function saveEdit(id: string) {
@@ -100,7 +96,7 @@ export default function DocketPage() {
 
           {/* Filter */}
           <div className="flex gap-1 flex-wrap">
-            {(["all", ...STANCES, ...PRIORITIES] as string[]).map((f) => (
+            {(["all", ...STANCES] as string[]).map((f) => (
               <button key={f} onClick={() => setFilter(f)}
                       className="font-pixel text-xs px-2 py-1"
                       style={{
@@ -152,24 +148,6 @@ export default function DocketPage() {
                               ))}
                             </div>
                           </div>
-                          <div>
-                            <label className="font-pixel block mb-1" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>PRIORITY</label>
-                            <div className="flex gap-1">
-                              {PRIORITIES.map((p) => (
-                                <button key={p} onClick={() => setEditData((d) => ({ ...d, priority: p }))}
-                                        className="font-pixel text-xs px-2 py-1"
-                                        style={{
-                                          border:     "2px solid",
-                                          borderColor: editData.priority === p ? PRIORITY_COLOR[p] : "var(--border)",
-                                          background:  editData.priority === p ? PRIORITY_COLOR[p] : "transparent",
-                                          color:       editData.priority === p ? "#fff"             : "var(--text)",
-                                          fontSize: "0.55rem",
-                                        }}>
-                                  {p.toUpperCase()}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
                         </div>
                         <textarea className="input-arcade resize-none" rows={2}
                                   placeholder="Notes..."
@@ -196,12 +174,6 @@ export default function DocketPage() {
                               <span className="font-pixel text-xs px-2 py-0"
                                     style={{ background: STANCE_COLOR[item.stance], color: "#fff", fontSize: "0.55rem" }}>
                                 {item.stance.toUpperCase()}
-                              </span>
-                            )}
-                            {item.priority && (
-                              <span className="font-pixel text-xs px-2 py-0"
-                                    style={{ border: `2px solid ${PRIORITY_COLOR[item.priority]}`, color: PRIORITY_COLOR[item.priority], fontSize: "0.55rem" }}>
-                                {item.priority.toUpperCase()}
                               </span>
                             )}
                             {(item.tags ?? []).map((t) => (
