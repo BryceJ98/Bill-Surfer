@@ -175,9 +175,42 @@ export const track = {
     request<TrackResult>("/track", { method: "POST", body: JSON.stringify(data) }),
 };
 
+// ── Memory ────────────────────────────────────────────────────────────────
+export const memory = {
+  get:   () => request<MemoryState>("/memory"),
+  clear: () => request<{ cleared: boolean }>("/memory", { method: "DELETE" }),
+};
+
+// ── CSV Import ────────────────────────────────────────────────────────────
+export const csvImport = {
+  upload: async (file: File): Promise<CsvUploadResult> => {
+    const token = await getToken();
+    const form  = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${BASE}/import/csv`, {
+      method:  "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      // NO Content-Type — browser sets multipart boundary automatically
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail ?? `Upload failed ${res.status}`);
+    }
+    return res.json();
+  },
+  docketBulk: (rows: BulkDocketRow[]) =>
+    request<BulkImportResult>("/import/docket-bulk", { method: "POST", body: JSON.stringify({ rows }) }),
+  landscape: (data: { raw_csv: string; row_count: number; columns: string[] }) =>
+    request<{ ai_summary: string }>("/import/landscape", { method: "POST", body: JSON.stringify(data) }),
+  stats: (data: { raw_csv: string; row_count: number; columns: string[] }) =>
+    request<CsvStatsResult>("/import/stats", { method: "POST", body: JSON.stringify(data) }),
+  templateUrl: () => `${BASE}/import/template`,
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────
 export interface KeyStatus      { provider: string; stored: boolean; masked?: string }
-export interface UserSettings   { user_id?: string; display_name?: string; institution?: string; research_areas?: string[]; ai_provider: string; ai_model: string }
+export interface UserSettings   { user_id?: string; display_name?: string; institution?: string; research_areas?: string[]; ai_provider: string; ai_model: string; memory_enabled?: boolean }
 export interface Scoreboard     { docket_count: number; reports_total: number; reports_today: number; ai_model: string; ai_provider: string; date: string; usage: { provider: string; call_count: number; token_count: number }[] }
 export interface DocketItem     { id: string; bill_id: string; bill_number?: string; state: string; title?: string; stance?: string; priority?: string; notes?: string; tags: string[]; added_date: string }
 export interface DocketItemIn   { bill_id: string; bill_number?: string; state: string; title?: string; stance?: string; priority?: string; notes?: string; tags?: string[] }
@@ -198,6 +231,11 @@ export interface TrackRequest   {
   topic: string; state?: string; congress?: number;
   include_crs?: boolean; include_record?: boolean;
 }
+export interface MemoryState       { enabled: boolean; summary: string; updated_at: string | null }
+export interface CsvUploadResult  { mode: "bill" | "generic"; columns: string[]; row_count: number; rows: Record<string, string>[]; raw_csv: string }
+export interface BulkDocketRow    { bill_id: string; bill_number?: string; state: string; title?: string; notes?: string; tags?: string[] }
+export interface BulkImportResult { imported: number; skipped: number; errors: string[] }
+export interface CsvStatsResult   { abstract: string; stats_table: { metric: string; value: string }[]; insights: string[] }
 export interface TrackResult    {
   topic: string; federal_bills: any[]; state_bills: any[];
   crs_reports: any[]; record_items: any[];

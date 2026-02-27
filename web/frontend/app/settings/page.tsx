@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import NavBar from "@/components/NavBar";
 import BodhiChat from "@/components/BodhiChat";
-import { keys as keysApi, settings as settingsApi, type KeyStatus, type UserSettings } from "@/lib/api";
+import { keys as keysApi, settings as settingsApi, memory as memoryApi, type KeyStatus, type UserSettings, type MemoryState } from "@/lib/api";
 
 const PROVIDERS = [
   { id: "legiscan",  label: "LEGISCAN",   url: "https://legiscan.com/legiscan",      icon: "📋", desc: "State bills — all 50 states" },
@@ -35,6 +35,8 @@ export default function SettingsPage() {
   const [profile, setProfile]         = useState({ display_name: "", institution: "", research_areas: "" });
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileError, setProfileError] = useState("");
+  const [memoryState,  setMemoryState]  = useState<MemoryState | null>(null);
+  const [memoryBusy,   setMemoryBusy]   = useState(false);
 
   useEffect(() => {
     keysApi.list().then(setStoredKeys).catch(() => {});
@@ -46,6 +48,7 @@ export default function SettingsPage() {
         research_areas: (s.research_areas ?? []).join(", "),
       });
     }).catch(() => {});
+    memoryApi.get().then(setMemoryState).catch(() => {});
   }, []);
 
   function isStored(provider: string) {
@@ -86,6 +89,27 @@ export default function SettingsPage() {
     } catch (e: any) {
       alert(`Failed to update AI model: ${e.message}`);
     }
+  }
+
+  async function toggleMemory() {
+    if (!memoryState) return;
+    setMemoryBusy(true);
+    const newVal = !memoryState.enabled;
+    try {
+      await settingsApi.update({ memory_enabled: newVal });
+      setMemoryState((m) => m ? { ...m, enabled: newVal } : m);
+    } catch (e: any) { alert(e.message); }
+    setMemoryBusy(false);
+  }
+
+  async function clearMemory() {
+    if (!confirm("Clear your AI memory? This cannot be undone.")) return;
+    setMemoryBusy(true);
+    try {
+      await memoryApi.clear();
+      setMemoryState((m) => m ? { ...m, summary: "", updated_at: null } : m);
+    } catch (e: any) { alert(e.message); }
+    setMemoryBusy(false);
   }
 
   async function saveProfile() {
@@ -191,6 +215,72 @@ export default function SettingsPage() {
               </a>
             </div>
           ))}
+        </section>
+
+        {/* AI Memory */}
+        <section className="card p-5 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <p className="font-pixel text-xs" style={{ color: "var(--accent)" }}>🧠 AI MEMORY</p>
+            <button
+              onClick={toggleMemory}
+              disabled={memoryBusy || !memoryState}
+              className="font-pixel text-xs px-3 py-1"
+              style={{
+                border:     "3px solid",
+                borderColor: memoryState?.enabled ? "var(--accent)" : "var(--border)",
+                background:  memoryState?.enabled ? "var(--accent)" : "transparent",
+                color:       memoryState?.enabled ? "var(--bg)"     : "var(--text-muted)",
+                boxShadow:   memoryState?.enabled ? "3px 3px 0 var(--border)" : "none",
+                cursor:      memoryBusy ? "wait" : "pointer",
+              }}
+            >
+              {memoryState?.enabled ? "● ON" : "○ OFF"}
+            </button>
+          </div>
+
+          <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }}>
+            When enabled, Bodhi builds a persistent profile of your research patterns across sessions —
+            topics, states, tools, and preferences. This context is injected into every AI call to
+            make responses progressively smarter. Stored securely; cleared anytime.
+          </p>
+
+          {memoryState?.enabled && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {memoryState.summary ? (
+                <>
+                  <div style={{
+                    background:  "var(--bg)",
+                    border:      "2px solid var(--border)",
+                    padding:     "10px 12px",
+                    fontFamily:  "monospace",
+                    fontSize:    "12px",
+                    color:       "var(--text)",
+                    lineHeight:  1.6,
+                    whiteSpace:  "pre-wrap",
+                  }}>
+                    {memoryState.summary}
+                  </div>
+                  {memoryState.updated_at && (
+                    <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.55rem" }}>
+                      Last updated: {new Date(memoryState.updated_at).toLocaleString()}
+                    </p>
+                  )}
+                  <button
+                    onClick={clearMemory}
+                    disabled={memoryBusy}
+                    className="font-pixel text-xs px-3 py-1 self-start"
+                    style={{ border: "3px solid #c53030", color: "#c53030", boxShadow: "3px 3px 0 #c53030", background: "transparent", cursor: "pointer" }}
+                  >
+                    ✕ CLEAR MEMORY
+                  </button>
+                </>
+              ) : (
+                <p className="font-pixel" style={{ color: "var(--text-muted)", fontSize: "0.6rem" }}>
+                  No memory yet. Use Chat, Explain, Track, or Import to start building your profile.
+                </p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* AI Model */}

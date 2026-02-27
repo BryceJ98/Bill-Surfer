@@ -18,6 +18,7 @@ class SettingsUpdate(BaseModel):
     research_areas:  list[str] | None = None
     ai_provider:     str | None = None
     ai_model:        str | None = None
+    memory_enabled:  bool | None = None
 
 
 AI_MODELS = {
@@ -47,7 +48,7 @@ def get_settings(user=Depends(get_current_user)):
 @router.patch("", summary="Update user settings")
 def update_settings(body: SettingsUpdate, user=Depends(get_current_user)):
     db = get_db()
-    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    updates = {k: v for k, v in body.model_dump(exclude_unset=True).items()}
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 

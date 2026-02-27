@@ -14,8 +14,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.auth import get_current_user
-from app.db import get_db, log_api_usage
+from app.db import get_db, log_api_usage, memory_system_prefix
 from app.routers.keys import get_user_key
+from app.routers.memory import fire_memory_update
 from app.tools import congress_client as cc
 from app.tools import legiscan_client as lc
 
@@ -169,13 +170,15 @@ def track_topic(body: TrackRequest, user=Depends(get_current_user)):
 
     context = "\n".join(context_lines)
 
+    mem_prefix = memory_system_prefix(user_id)
+
     ai_summary = ""
     try:
         resp = litellm.completion(
             model=ai_model,
             api_key=ai_key,
             messages=[
-                {"role": "system", "content": _TRACK_SYSTEM},
+                {"role": "system", "content": mem_prefix + _TRACK_SYSTEM},
                 {"role": "user",   "content": f"Analyze the following legislation on '{body.topic}':\n\n{context}"},
             ],
             timeout=60,
@@ -187,6 +190,12 @@ def track_topic(body: TrackRequest, user=Depends(get_current_user)):
         ai_summary = (resp.choices[0].message.content if resp.choices else "") or ""
     except Exception as exc:
         ai_summary = f"AI analysis unavailable: {exc}"
+
+    state_label = f" in {body.state}" if body.state else ""
+    fire_memory_update(
+        user_id, ai_provider, ai_model, ai_key,
+        f"Tracked topic: '{body.topic}'{state_label}. Found {len(federal_bills)} federal, {len(state_bills)} state bills.",
+    )
 
     return {
         "topic":         body.topic,

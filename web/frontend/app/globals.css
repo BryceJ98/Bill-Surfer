@@ -196,6 +196,14 @@ body {
 .ski-flake-18 { left: 62%; animation-duration: 12s; animation-delay: 7.5s;  font-size: 0.75rem;}
 .ski-flake-19 { left: 90%; animation-duration: 9s;  animation-delay: 10s;   font-size: 1.1rem; }
 
+/* ── Themed loading bar ─────────────────────────────────────────────────── */
+@keyframes loader-ride {
+  0%   { transform: translateX(-8px); opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { transform: translateX(232px); opacity: 0; }
+}
+
 /* ── Après-ski accent — gold border glow in ski mode ───────────────────── */
 .dark .pixel-border {
   border-color: var(--border);
